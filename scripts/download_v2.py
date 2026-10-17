@@ -2,6 +2,8 @@
 names) and 4/5/6 (code-switching and other conversational settings), and the
 held-out test split of every part. Shards spread across each part."""
 import time
+from concurrent.futures import ThreadPoolExecutor
+
 from huggingface_hub import hf_hub_download
 
 MNSC = "MERaLiON/Multitask-National-Speech-Corpus-v1"
@@ -19,7 +21,15 @@ for d, (n, k) in plan.items():
 tests = {"ASR-PART1-Test": 2, "ASR-PART2-Test": 1, "ASR-PART4-Test": 2, "ASR-PART5-Test": 2, "ASR-PART6-Test": 2}
 files += [f"{d}/train-{i:05d}-of-{n:05d}.parquet" for d, n in tests.items() for i in range(n)]
 t0 = time.time()
-for f in files:
+
+
+def get(f):
     hf_hub_download(MNSC, f, repo_type="dataset", local_dir="data/Multitask-National-Speech-Corpus-v1")
     print(f"{time.time()-t0:6.0f}s {f}", flush=True)
+
+
+# 4 parallel transfers (install hf_xet for Hugging Face's faster Xet protocol);
+# training shards first because training waits on them, test splits last
+with ThreadPoolExecutor(4) as ex:
+    list(ex.map(get, files))
 print("DOWNLOAD_V2_DONE", flush=True)

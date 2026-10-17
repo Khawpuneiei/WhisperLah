@@ -25,6 +25,9 @@ def main():
     ap.add_argument("--bs", type=int, default=8)
     ap.add_argument("--greedy", action="store_true",
                     help="plain greedy decoding, no temperature fallback")
+    ap.add_argument("--prompt", help='Whisper text prompt, e.g. "Near speaker only." for WhisperLah near-mic mode')
+    ap.add_argument("--len-cap", action="store_true",
+                    help="cap output at 8 tokens per second of audio (+24): stops run-on text past the end of a clip")
     args = ap.parse_args()
     torch.manual_seed(0)  # fallback samples at T>0; keep reruns identical
 
@@ -58,11 +61,16 @@ def main():
             # higher temperature when the output compresses too well (a loop).
             # Applied to every model in the table alike.
             kw.update(temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0), compression_ratio_threshold=1.35, do_sample=False)
+        if args.prompt:
+            kw["prompt_ids"] = processor.get_prompt_ids(args.prompt, return_tensors="pt").to("cuda")
         if is_long:  # Whisper long-form: sequential 30 s windows
             kw.update(attention_mask=feats.attention_mask.to("cuda"), return_timestamps=True,
                       condition_on_prev_tokens=False)
         else:
-            kw.update(max_new_tokens=440)
+            cap = 440
+            if args.len_cap:
+                cap = min(440, int(8 * max(len(w) for w in waves) / 16000) + 24)
+            kw.update(max_new_tokens=cap)
         with torch.inference_mode():
             ids = model.generate(feats.input_features.to("cuda", torch.float16), **kw)
         texts = processor.batch_decode(ids, skip_special_tokens=True)
@@ -75,7 +83,8 @@ def main():
     pairs = [(r, h) for r, h in pairs if r]
     rep = wer_report([r for r, _ in pairs], [h for _, h in pairs])
     rep.update(model=args.model, adapter=args.adapter, set=args.set, name=args.name,
-               decoding="greedy" if args.greedy else "greedy+temperature_fallback",
+               decoding=("greedy" if args.greedy else "greedy+temperature_fallback") + ("+len_cap" if args.len_cap else ""),
+               prompt=args.prompt,
                audio_hours=round(hours, 2), runtime_s=round(secs), rtf=round(secs / (hours * 3600), 4))
     print(json.dumps(rep, indent=1), flush=True)
 

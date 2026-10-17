@@ -24,14 +24,21 @@ MNSC = f"{ROOT}/data/Multitask-National-Speech-Corpus-v1"
 SOURCES = ["ASR-PART1-Train", "ASR-PART2-Train", "ASR-PART3-Train", "ASR-PART4-Train",
            "ASR-PART5-Train", "ASR-PART6-Train"]
 
+import sys
+
 fe = WhisperFeatureExtractor.from_pretrained("openai/whisper-large-v3-turbo")
-shards = [(src, p) for src in SOURCES for p in sorted(glob.glob(f"{MNSC}/{src}/*.parquet"))]
+INDEX = f"{ROOT}/data/v2_index.json"
+# incremental: shards already featurised are skipped, new ones appended
+prev = json.load(open(INDEX, encoding="utf-8")) if os.path.exists(INDEX) else {"n_values": 0, "clips": [], "shards": []}
+v1_shards = {f"train-{i:05d}-of-00171.parquet" for i in range(0, 171, 15)}
+shards = [(src, p) for src in SOURCES for p in sorted(glob.glob(f"{MNSC}/{src}/*.parquet"))
+          if os.path.basename(p) not in prev["shards"] and not (src == "ASR-PART3-Train" and os.path.basename(p) in v1_shards)]
 N = sum(pq.ParquetFile(p).metadata.num_rows for _, p in shards)
-print(f"{len(shards)} shards, {N} clips", flush=True)
+print(f"{len(shards)} new shards, {N} clips (already stored: {len(prev['clips'])})", flush=True)
 
 # appended clip by clip: exact size on disk, no preallocation
-flat = open(f"{ROOT}/data/v2_feats.bin", "wb")
-index, pos, secs = [], 0, {}
+flat = open(f"{ROOT}/data/v2_feats.bin", "ab")
+index, pos, secs = prev["clips"], prev["n_values"], {}
 
 
 def store(src, waves, texts):
@@ -60,12 +67,17 @@ for src, path in tqdm(shards, desc="shards"):
             batch_w, batch_t = [], []
     if batch_w:
         store(src, batch_w, batch_t)
+    flat.flush()
+    prev["shards"].append(os.path.basename(path))
+    json.dump({"n_values": pos, "clips": index, "shards": prev["shards"]},
+              open(INDEX, "w", encoding="utf-8"), ensure_ascii=False)
 
 flat.close()
-json.dump({"n_values": pos, "clips": index}, open(f"{ROOT}/data/v2_index.json", "w", encoding="utf-8"),
-          ensure_ascii=False)
 print({k: f"{v / 3600:.1f} h" for k, v in secs.items()}, flush=True)
 print(f"stored {len(index)} clips, {pos * 2 / 2**30:.1f} GB", flush=True)
+
+if "--check" not in sys.argv:
+    sys.exit(0)
 
 # --- contamination check: all training text vs every test set --------------
 norm = Normalizer()
