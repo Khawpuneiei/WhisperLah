@@ -1,0 +1,9 @@
+.venv/
+.venv-*/
+data/
+runs/
+__pycache__/
+*.pyc
+results/log_*.txt
+results/setup.log
+results/download*.log

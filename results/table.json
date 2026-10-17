@@ -1,0 +1,74 @@
+[
+ {
+  "set": "mnsc_part3",
+  "view": "full",
+  "model": "lora-r32",
+  "clips": 1000,
+  "wer": 19.5,
+  "sub": 6578,
+  "del": 3653,
+  "ins": 4500,
+  "particle_recall": 73.7,
+  "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "full",
+  "model": "mjwong-turbo-singlish",
+  "clips": 1000,
+  "wer": 26.17,
+  "sub": 8431,
+  "del": 8942,
+  "ins": 2401,
+  "particle_recall": 5.8,
+  "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "full",
+  "model": "whisper-large-v3-turbo",
+  "clips": 1000,
+  "wer": 27.66,
+  "sub": 7255,
+  "del": 10600,
+  "ins": 3042,
+  "particle_recall": 9.5,
+  "particles_in_ref": 792
+ },
+ {
+  "set": "sasrbench",
+  "view": "full",
+  "model": "lora-r32",
+  "clips": 1101,
+  "wer": 22.35,
+  "sub": 2672,
+  "del": 753,
+  "ins": 4976,
+  "particle_recall": 69.0,
+  "particles_in_ref": 287
+ },
+ {
+  "set": "sasrbench",
+  "view": "full",
+  "model": "mjwong-turbo-singlish",
+  "clips": 1101,
+  "wer": 17.07,
+  "sub": 3902,
+  "del": 1411,
+  "ins": 1102,
+  "particle_recall": 9.4,
+  "particles_in_ref": 287
+ },
+ {
+  "set": "sasrbench",
+  "view": "full",
+  "model": "whisper-large-v3-turbo",
+  "clips": 1101,
+  "wer": 24.06,
+  "sub": 3169,
+  "del": 3836,
+  "ins": 2039,
+  "particle_recall": 5.6,
+  "particles_in_ref": 287
+ }
+]
