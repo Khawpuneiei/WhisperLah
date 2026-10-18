@@ -5,9 +5,9 @@ trained on open Singlish speech from IMDA's National Speech Corpus, plus the
 contamination-checked benchmark harness used to measure it against every
 Singlish model we could run, including A*STAR's MERaLiON-2.
 
-Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time.
+Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time (v1 1.6 h + v2 4.5 h).
 
-**Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, including both public benchmarks: 15.1% on SASRBench-v1 (MERaLiON-2-3B 16.2%, public Singlish fine-tune 17.0%, Whisper large-v3-turbo 24.0%) and 19.0% on NSC two-person conversation (next best 26.2%). Behind on NSC Part 1 (6.2% vs 4.8% for MERaLiON-2-3B), NSC Part 2 (23.6% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less.
+**Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, including both public benchmarks: 15.1% on SASRBench-v1 (MERaLiON-2-3B 16.2%, public Singlish fine-tune 17.0%, Whisper large-v3-turbo 24.0%) and 19.0% on NSC two-person conversation (next best 26.2%). Behind on NSC Part 1 (6.2% vs 4.8% for MERaLiON-2-3B) and NSC Part 2 (23.6% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less.
 
 ![WhisperLah v2 against other Singlish models](results/whisperlah_v2_chart.png)
 
@@ -16,14 +16,16 @@ Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time.
 Word error rate, %, lower is better. Every model is scored on the same clips
 with the same text normaliser. Bold is the best score on each test set.
 
-| Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips | NSC P1 read<br>484 clips | NSC P2 read, local names<br>490 clips | NSC P4 code-switch<br>300 clips | NSC P5<br>300 clips | NSC P6<br>300 clips |
+| Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips | NSC P1 read<br>484 clips | NSC P2 read, local names<br>490 clips | NSC P4 conversation<br>300 clips | NSC P5 conversation<br>300 clips | NSC P6 conversation<br>300 clips |
 |---|---|---|---|---|---|---|---|
 | Whisper large-v3-turbo | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 |
 | Public Singlish fine-tune (mjwong) | 17.0 | 26.2 | 8.9 | 31.0 | 41.2 | 18.8 | 15.2 |
 | MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 | **4.8** | **6.6** | 40.8 | 19.3 | 14.9 |
 | WhisperLah v1 | 22.2 | 19.5 | · | · | · | · | · |
-| **WhisperLah v2** · room mode | 16.8 | 19.0 | 6.2 | 23.6 | **29.5** | **14.3** | **11.1** |
+| **WhisperLah v2** · room mode | 16.8 | 19.0 | 6.2 | 23.6 | **29.5** | 14.3 | 11.1 |
 | **WhisperLah v2** · near-mic mode | **15.1** | **18.9** | · | · | · | · | · |
+| **WhisperLah v2.1** · room mode | 18.4 | 19.0 | 6.2 | 23.5 | 29.9 | **13.7** | **10.9** |
+| **WhisperLah v2.1** · near-mic mode | 16.0 | 18.9 | · | · | · | · | · |
 
 Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao …), share of those in the reference:
 
@@ -35,6 +37,8 @@ Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao �
 | WhisperLah v1 | 69% | 74% |
 | **WhisperLah v2** · room mode | 69% | 74% |
 | **WhisperLah v2** · near-mic mode | 70% | 72% |
+| **WhisperLah v2.1** · room mode | 72% | 73% |
+| **WhisperLah v2.1** · near-mic mode | 70% | 72% |
 
 Full numbers, including substitutions/deletions/insertions per model:
 `results/table.json`. Every hypothesis for every clip: `results/<set>__<model>.jsonl`.
@@ -205,7 +209,14 @@ python report.py && python table_md.py && python chart_v2.py
 - **v1**: LoRA on 52 h of NSC Part 3 conversation (500 steps). NSC P3 19.5%,
   SASRBench 22.2%; its SASRBench errors were mostly the background speaker,
   which led to v2's near-mic mode.
-- **v2**: all six NSC parts, near-mic mode, SpecAugment, warm start from v1.
+- **v2** (the release): all six NSC parts, near-mic mode, SpecAugment, warm
+  start from v1. 1,400 steps reached 73% of the 30.6 k clips.
+- **v2.1** (not released as default): 300 more steps from v2 on the 8.1 k clips
+  v2 never reached, restarting the learning-rate schedule at 1e-4. The rule set
+  before scoring was "replace v2 only if the 7-set average improves". It did
+  not: 17.00% against v2's 16.96%, better on Parts 1, 2, 5, 6 and worse on
+  SASRBench, Parts 3 and 4. The adapter is kept in `models/whisperlah-v2.1-lora`
+  and its row stays in the table.
 
 ## Data and attribution
 

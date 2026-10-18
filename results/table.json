@@ -67,6 +67,32 @@
  {
   "set": "sasrbench",
   "view": "full",
+  "model": "whisperlah-v2.1-near",
+  "clips": 1055,
+  "excluded": 436,
+  "wer": 15.96,
+  "sub": 2395,
+  "del": 728,
+  "ins": 2639,
+  "particle_recall": 69.5,
+  "particles_in_ref": 272
+ },
+ {
+  "set": "sasrbench",
+  "view": "full",
+  "model": "whisperlah-v2.1",
+  "clips": 1055,
+  "excluded": 436,
+  "wer": 18.41,
+  "sub": 2430,
+  "del": 663,
+  "ins": 3551,
+  "particle_recall": 71.7,
+  "particles_in_ref": 272
+ },
+ {
+  "set": "sasrbench",
+  "view": "full",
   "model": "whisperlah-v2",
   "clips": 1055,
   "excluded": 436,
@@ -145,6 +171,32 @@
  {
   "set": "mnsc_part3",
   "view": "full",
+  "model": "whisperlah-v2.1-near",
+  "clips": 997,
+  "excluded": 3,
+  "wer": 18.94,
+  "sub": 6450,
+  "del": 3731,
+  "ins": 4106,
+  "particle_recall": 72.5,
+  "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "full",
+  "model": "whisperlah-v2.1",
+  "clips": 997,
+  "excluded": 3,
+  "wer": 19.01,
+  "sub": 6558,
+  "del": 3368,
+  "ins": 4417,
+  "particle_recall": 73.4,
+  "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "full",
   "model": "whisperlah-v2",
   "clips": 997,
   "excluded": 3,
@@ -191,6 +243,19 @@
   "sub": 337,
   "del": 100,
   "ins": 58,
+  "particle_recall": null,
+  "particles_in_ref": 0
+ },
+ {
+  "set": "mnsc_part1",
+  "view": "full",
+  "model": "whisperlah-v2.1",
+  "clips": 484,
+  "excluded": 111,
+  "wer": 6.15,
+  "sub": 286,
+  "del": 53,
+  "ins": 65,
   "particle_recall": null,
   "particles_in_ref": 0
  },
@@ -249,6 +314,19 @@
  {
   "set": "mnsc_part2",
   "view": "full",
+  "model": "whisperlah-v2.1",
+  "clips": 490,
+  "excluded": 63,
+  "wer": 23.47,
+  "sub": 743,
+  "del": 56,
+  "ins": 106,
+  "particle_recall": 75.0,
+  "particles_in_ref": 4
+ },
+ {
+  "set": "mnsc_part2",
+  "view": "full",
   "model": "whisperlah-v2",
   "clips": 490,
   "excluded": 63,
@@ -296,6 +374,19 @@
   "del": 3636,
   "ins": 1677,
   "particle_recall": 7.9,
+  "particles_in_ref": 507
+ },
+ {
+  "set": "mnsc_part4",
+  "view": "full",
+  "model": "whisperlah-v2.1",
+  "clips": 300,
+  "excluded": 0,
+  "wer": 29.87,
+  "sub": 3272,
+  "del": 1684,
+  "ins": 1704,
+  "particle_recall": 71.2,
   "particles_in_ref": 507
  },
  {
@@ -353,6 +444,19 @@
  {
   "set": "mnsc_part5",
   "view": "full",
+  "model": "whisperlah-v2.1",
+  "clips": 300,
+  "excluded": 0,
+  "wer": 13.69,
+  "sub": 1078,
+  "del": 882,
+  "ins": 926,
+  "particle_recall": 77.2,
+  "particles_in_ref": 136
+ },
+ {
+  "set": "mnsc_part5",
+  "view": "full",
   "model": "whisperlah-v2",
   "clips": 300,
   "excluded": 0,
@@ -400,6 +504,19 @@
   "del": 1806,
   "ins": 580,
   "particle_recall": 8.1,
+  "particles_in_ref": 37
+ },
+ {
+  "set": "mnsc_part6",
+  "view": "full",
+  "model": "whisperlah-v2.1",
+  "clips": 300,
+  "excluded": 5,
+  "wer": 10.87,
+  "sub": 679,
+  "del": 608,
+  "ins": 744,
+  "particle_recall": 83.8,
   "particles_in_ref": 37
  },
  {

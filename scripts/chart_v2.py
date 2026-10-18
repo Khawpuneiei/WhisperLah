@@ -40,10 +40,13 @@ def bar(ax, y, w, h, color):
         ax.add_patch(plt.Rectangle((0, y - h / 2), r, h, linewidth=0, facecolor=color))
 
 
-def main(out=f"{ROOT}/results/whisperlah_v2_chart.png"):
+def main(version="whisperlah-v2", out=f"{ROOT}/results/whisperlah_v2_chart.png"):
     table = json.load(open(f"{ROOT}/results/table.json"))
     wer = {(t["set"], t["model"]): t for t in table if t["view"] == "full"}
-    panels = [(s, title, [(k, lab) for k, lab in rows if (s, k) in wer]) for s, title, rows in PANELS]
+    tag = version.replace("whisperlah-", "WhisperLah ")
+    panels = [(s, title, [(k.replace("whisperlah-v2", version), lab.replace("WhisperLah v2", tag)) for k, lab in rows])
+              for s, title, rows in PANELS]
+    panels = [(s, title, [(k, lab) for k, lab in rows if (s, k) in wer]) for s, title, rows in panels]
     panels = [p for p in panels if p[2]]
     xmax = max(wer[(s, k)]["wer"] for s, _, rows in panels for k, _ in rows) * 1.25
     plt.rcParams["font.family"] = "Arial"

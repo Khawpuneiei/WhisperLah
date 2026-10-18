@@ -5,7 +5,7 @@ trained on open Singlish speech from IMDA's National Speech Corpus, plus the
 contamination-checked benchmark harness used to measure it against every
 Singlish model we could run, including A*STAR's MERaLiON-2.
 
-Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time.
+Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time (v1 1.6 h + v2 4.5 h).
 
 <!--HEADLINE-->
 
@@ -187,7 +187,14 @@ python report.py && python table_md.py && python chart_v2.py
 - **v1**: LoRA on 52 h of NSC Part 3 conversation (500 steps). NSC P3 19.5%,
   SASRBench 22.2%; its SASRBench errors were mostly the background speaker,
   which led to v2's near-mic mode.
-- **v2**: all six NSC parts, near-mic mode, SpecAugment, warm start from v1.
+- **v2** (the release): all six NSC parts, near-mic mode, SpecAugment, warm
+  start from v1. 1,400 steps reached 73% of the 30.6 k clips.
+- **v2.1** (not released as default): 300 more steps from v2 on the 8.1 k clips
+  v2 never reached, restarting the learning-rate schedule at 1e-4. The rule set
+  before scoring was "replace v2 only if the 7-set average improves". It did
+  not: 17.00% against v2's 16.96%, better on Parts 1, 2, 5, 6 and worse on
+  SASRBench, Parts 3 and 4. The adapter is kept in `models/whisperlah-v2.1-lora`
+  and its row stays in the table.
 
 ## Data and attribution
 

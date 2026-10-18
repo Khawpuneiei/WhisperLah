@@ -1,5 +1,5 @@
 """v2 data: more Part 3 conversation, plus Parts 1/2 (short read speech, local
-names) and 4/5/6 (code-switching and other conversational settings), and the
+names) and 4/5/6 (further conversational recordings), and the
 held-out test split of every part. Shards spread across each part."""
 import time
 from concurrent.futures import ThreadPoolExecutor

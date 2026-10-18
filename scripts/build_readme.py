@@ -44,7 +44,8 @@ headline = (
     f"conversation (next best {min(t[('mnsc_part3', m)]['wer'] for m in others if ('mnsc_part3', m) in t):.1f}%). "
 )
 if losses:
-    headline += ("Behind on " + ", ".join(f"{LABEL[s]} ({o:.1f}% vs {r[0]:.1f}% for {rival_name[r[1]]})" for s, o, r in losses)
+    parts = [f"{LABEL[s]} ({o:.1f}% vs {r[0]:.1f}% for {rival_name[r[1]]})" for s, o, r in losses]
+    headline += ("Behind on " + (", ".join(parts[:-1]) + " and " + parts[-1] if len(parts) > 1 else parts[0])
                  + ": read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). ")
 headline += ("It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: "
              "about 70% of them, against 10% or less.")

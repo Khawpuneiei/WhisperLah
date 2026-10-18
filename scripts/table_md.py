@@ -12,15 +12,17 @@ MODELS = [
     ("whisperlah-v1", "WhisperLah v1"),
     ("whisperlah-v2", "**WhisperLah v2** · room mode"),
     ("whisperlah-v2-near", "**WhisperLah v2** · near-mic mode"),
+    ("whisperlah-v2.1", "**WhisperLah v2.1** · room mode"),
+    ("whisperlah-v2.1-near", "**WhisperLah v2.1** · near-mic mode"),
 ]
 SETS = [
     ("sasrbench", "SASRBench-v1"),
     ("mnsc_part3", "NSC P3 conversation"),
     ("mnsc_part1", "NSC P1 read"),
     ("mnsc_part2", "NSC P2 read, local names"),
-    ("mnsc_part4", "NSC P4 code-switch"),
-    ("mnsc_part5", "NSC P5"),
-    ("mnsc_part6", "NSC P6"),
+    ("mnsc_part4", "NSC P4 conversation"),
+    ("mnsc_part5", "NSC P5 conversation"),
+    ("mnsc_part6", "NSC P6 conversation"),
 ]
 
 
