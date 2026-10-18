@@ -16,17 +16,17 @@ Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time (v1 1.6 h
 Word error rate, %, lower is better. Every model is scored on the same clips
 with the same text normaliser. Bold is the best score on each test set.
 
-| Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips | NSC P1 read<br>484 clips | NSC P2 read, local names<br>490 clips | NSC P4 conversation<br>300 clips | NSC P5 conversation<br>300 clips | NSC P6 conversation<br>300 clips | AMI meetings, headset mic (English)<br>11653 clips | LibriSpeech clean (English)<br>2620 clips | LibriSpeech other (English)<br>2939 clips |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Whisper large-v3-turbo | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 | **14.9** | **1.9** | **3.9** |
-| Public Singlish fine-tune (mjwong) | 17.0 | 26.2 | 8.9 | 31.0 | 41.2 | 18.8 | 15.2 | · | · | · |
-| MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 | **4.8** | **6.6** | 40.8 | 19.3 | 14.9 | · | · | · |
-| GPT-4o Transcribe, diarize (OpenAI API) | 30.8 | 30.5† | · | · | · | · | · | · | · | · |
-| WhisperLah v1 | 22.2 | 19.5 | · | · | · | · | · | · | · | · |
-| **WhisperLah v2** · room mode | 16.8 | 19.0 | 6.2 | 23.6 | **29.5** | 14.3 | 11.1 | · | 2.2 | 4.7 |
-| **WhisperLah v2** · near-mic mode | **15.1** | **18.9** | · | · | · | · | · | · | · | · |
-| **WhisperLah v2.1** · room mode | 18.4 | 19.0 | 6.2 | 23.5 | 29.9 | **13.7** | **10.9** | · | · | · |
-| **WhisperLah v2.1** · near-mic mode | 16.0 | 18.9 | · | · | · | · | · | · | · | · |
+| Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips | NSC P1 read<br>484 clips | NSC P2 read, local names<br>490 clips | NSC P4 conversation<br>300 clips | NSC P5 conversation<br>300 clips | NSC P6 conversation<br>300 clips | AMI meetings, headset mic (English)<br>11653 clips | AMI meetings, table mic (English)<br>11653 clips | LibriSpeech clean (English)<br>2620 clips | LibriSpeech other (English)<br>2939 clips |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Whisper large-v3-turbo | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 | 14.9 | 34.1 | **1.9** | **3.9** |
+| Public Singlish fine-tune (mjwong) | 17.0 | 26.2 | 8.9 | 31.0 | 41.2 | 18.8 | 15.2 | · | · | · | · |
+| MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 | **4.8** | **6.6** | 40.8 | 19.3 | 14.9 | · | · | · | · |
+| GPT-4o Transcribe, diarize (OpenAI API) | 30.8 | 30.5† | · | · | · | · | · | · | · | · | · |
+| WhisperLah v1 | 22.2 | 19.5 | · | · | · | · | · | · | · | · | · |
+| **WhisperLah v2** · room mode | 16.8 | 19.0 | 6.2 | 23.6 | **29.5** | 14.3 | 11.1 | **11.3** | **33.0** | 2.2 | 4.7 |
+| **WhisperLah v2** · near-mic mode | **15.1** | **18.9** | · | · | · | · | · | · | · | · | · |
+| **WhisperLah v2.1** · room mode | 18.4 | 19.0 | 6.2 | 23.5 | 29.9 | **13.7** | **10.9** | · | · | · | · |
+| **WhisperLah v2.1** · near-mic mode | 16.0 | 18.9 | · | · | · | · | · | · | · | · | · |
 
 Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao …), share of those in the reference:
 

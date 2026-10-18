@@ -689,6 +689,45 @@
   "particles_in_ref": 23
  },
  {
+  "set": "ami",
+  "view": "full",
+  "model": "whisperlah-v2",
+  "clips": 11653,
+  "excluded": 0,
+  "wer": 11.34,
+  "sub": 5147,
+  "del": 3252,
+  "ins": 1698,
+  "particle_recall": 21.7,
+  "particles_in_ref": 23
+ },
+ {
+  "set": "ami_sdm",
+  "view": "full",
+  "model": "whisper-large-v3-turbo",
+  "clips": 11653,
+  "excluded": 0,
+  "wer": 34.06,
+  "sub": 12084,
+  "del": 11059,
+  "ins": 7196,
+  "particle_recall": 4.3,
+  "particles_in_ref": 23
+ },
+ {
+  "set": "ami_sdm",
+  "view": "full",
+  "model": "whisperlah-v2",
+  "clips": 11653,
+  "excluded": 0,
+  "wer": 32.96,
+  "sub": 13972,
+  "del": 6865,
+  "ins": 8524,
+  "particle_recall": 0.0,
+  "particles_in_ref": 23
+ },
+ {
   "set": "librispeech_clean",
   "view": "full",
   "model": "whisper-large-v3-turbo",
