@@ -39,6 +39,8 @@ def main():
     ap.add_argument("--data", default="v1", help="comma list of feature stores: v1 (Part 3 slice), v2 (all parts)")
     ap.add_argument("--init", help="LoRA adapter to continue training from")
     ap.add_argument("--specaug", action="store_true", help="SpecAugment time + frequency masking")
+    ap.add_argument("--start_pos", type=int, default=0,
+                    help="skip this many samples of the seed's shuffle, to continue a run on the clips it has not seen")
     args = ap.parse_args()
     out_dir = f"{ROOT}/runs/{args.name}"
     os.makedirs(out_dir, exist_ok=True)
@@ -130,7 +132,7 @@ def main():
             lab[r, :len(l)] = torch.tensor(l)
         return x, dec.to("cuda"), lab.to("cuda")
 
-    order, pos = rng.permutation(keep), 0
+    order, pos = rng.permutation(keep), args.start_pos
     log = open(f"{out_dir}/train_log.jsonl", "a")
     t0, run_loss = time.time(), []
     for step in range(1, args.steps + 1):

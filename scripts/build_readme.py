@@ -16,15 +16,38 @@ def w(s, m):
 
 
 others = ["whisper-large-v3-turbo", "mjwong-turbo-singlish", "MERaLiON-2-3B"]
-best_other_p3 = min((t[("mnsc_part3", m)]["wer"], m) for m in others if ("mnsc_part3", m) in t)
+OURS = [m for m in ("whisperlah-v2.1", "whisperlah-v2.1-near", "whisperlah-v2", "whisperlah-v2-near")]
+LABEL = {"sasrbench": "SASRBench-v1", "mnsc_part3": "NSC Part 3", "mnsc_part1": "NSC Part 1",
+         "mnsc_part2": "NSC Part 2", "mnsc_part4": "NSC Part 4", "mnsc_part5": "NSC Part 5", "mnsc_part6": "NSC Part 6"}
+VERSION = sys.argv[1] if len(sys.argv) > 1 else "whisperlah-v2"
+
+
+def ours_best(s):
+    vals = [t[(s, m)]["wer"] for m in (VERSION, VERSION + "-near") if (s, m) in t]
+    return min(vals) if vals else None
+
+
+wins, losses = [], []
+for s in LABEL:
+    o = ours_best(s)
+    rivals = [(t[(s, m)]["wer"], m) for m in others if (s, m) in t]
+    if o is None or not rivals:
+        continue
+    (wins if o < min(rivals)[0] else losses).append((s, o, min(rivals)))
+rival_name = {"whisper-large-v3-turbo": "Whisper large-v3-turbo", "mjwong-turbo-singlish": "the public Singlish fine-tune",
+              "MERaLiON-2-3B": "MERaLiON-2-3B"}
 headline = (
-    f"**On both public Singlish benchmarks, WhisperLah v2 has the lowest word error rate of every model tested**: "
-    f"{w('sasrbench', 'whisperlah-v2-near')} on SASRBench-v1 (MERaLiON-2-3B {w('sasrbench', 'MERaLiON-2-3B')}, "
-    f"public Singlish fine-tune {w('sasrbench', 'mjwong-turbo-singlish')}, Whisper large-v3-turbo "
-    f"{w('sasrbench', 'whisper-large-v3-turbo')}) and {w('mnsc_part3', 'whisperlah-v2-near')} on NSC two-person "
-    f"conversation (next best {best_other_p3[0]:.1f}%). It also writes down the Singlish discourse particles "
-    f"(lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less."
+    f"**Lowest word error rate of every model tested on {len(wins)} of {len(wins) + len(losses)} Singlish test sets**, "
+    f"including both public benchmarks: {w('sasrbench', VERSION + '-near')} on SASRBench-v1 "
+    f"(MERaLiON-2-3B {w('sasrbench', 'MERaLiON-2-3B')}, public Singlish fine-tune {w('sasrbench', 'mjwong-turbo-singlish')}, "
+    f"Whisper large-v3-turbo {w('sasrbench', 'whisper-large-v3-turbo')}) and {w('mnsc_part3', VERSION)} on NSC two-person "
+    f"conversation (next best {min(t[('mnsc_part3', m)]['wer'] for m in others if ('mnsc_part3', m) in t):.1f}%). "
 )
+if losses:
+    headline += ("Behind on " + ", ".join(f"{LABEL[s]} ({o:.1f}% vs {r[0]:.1f}% for {rival_name[r[1]]})" for s, o, r in losses)
+                 + ": read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). ")
+headline += ("It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: "
+             "about 70% of them, against 10% or less.")
 out = tpl.replace("<!--HEADLINE-->", headline).replace("<!--RESULTS_TABLE-->", tables.strip())
 (ROOT / "README.md").write_text(out, encoding="utf-8")
 print(headline)

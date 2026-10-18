@@ -127,6 +127,17 @@ recordings, and our check found 436 of its 3,747 clips inside just 20 of the
 therefore likely seen most of SASRBench's audio. That applies to MERaLiON-2,
 which was trained on NSC-derived data at scale, and not to WhisperLah.
 
+The read-speech tests (Parts 1 and 2) have a second, larger version of the
+same issue. Each is about 1,000 prompt sentences, each read by three speakers,
+and the same prompts recur across the training split: a single one of our
+training shards already contains the text of 2.1% (Part 2) to 3.7% (Part 1) of
+the test clips. Across the 727–771 training shards of each part, essentially
+every test sentence appears in training text. Clips overlapping *our* training
+text are excluded, but a model trained on the full split, as MERaLiON-2 likely
+was, has read every test sentence. Its lead on Parts 1 and 2 should be read
+with that in mind; the conversational tests (Parts 3–6, SASRBench) have no
+such recurring prompts.
+
 **Scoring.** `jiwer` WER after one normaliser applied identically to every
 reference and hypothesis (`scripts/common.py`): NSC markup removed
 (`<Speaker1>:`, `(uh)`, `(ppl)`, `**`, `#…#`, `~`), Singlish particles kept

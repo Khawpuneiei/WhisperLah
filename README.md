@@ -7,7 +7,7 @@ Singlish model we could run, including A*STAR's MERaLiON-2.
 
 Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time.
 
-**On both public Singlish benchmarks, WhisperLah v2 has the lowest word error rate of every model tested**: 15.1% on SASRBench-v1 (MERaLiON-2-3B 16.2%, public Singlish fine-tune 17.0%, Whisper large-v3-turbo 24.0%) and 18.9% on NSC two-person conversation (next best 26.2%). It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less.
+**Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, including both public benchmarks: 15.1% on SASRBench-v1 (MERaLiON-2-3B 16.2%, public Singlish fine-tune 17.0%, Whisper large-v3-turbo 24.0%) and 19.0% on NSC two-person conversation (next best 26.2%). Behind on NSC Part 1 (6.2% vs 4.8% for MERaLiON-2-3B), NSC Part 2 (23.6% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less.
 
 ![WhisperLah v2 against other Singlish models](results/whisperlah_v2_chart.png)
 
@@ -16,14 +16,14 @@ Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time.
 Word error rate, %, lower is better. Every model is scored on the same clips
 with the same text normaliser. Bold is the best score on each test set.
 
-| Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips |
-|---|---|---|
-| Whisper large-v3-turbo | 24.0 | 27.7 |
-| Public Singlish fine-tune (mjwong) | 17.0 | 26.2 |
-| MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 |
-| WhisperLah v1 | 22.2 | 19.5 |
-| **WhisperLah v2** · room mode | 16.8 | 19.0 |
-| **WhisperLah v2** · near-mic mode | **15.1** | **18.9** |
+| Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips | NSC P1 read<br>484 clips | NSC P2 read, local names<br>490 clips | NSC P4 code-switch<br>300 clips | NSC P5<br>300 clips | NSC P6<br>300 clips |
+|---|---|---|---|---|---|---|---|
+| Whisper large-v3-turbo | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 |
+| Public Singlish fine-tune (mjwong) | 17.0 | 26.2 | 8.9 | 31.0 | 41.2 | 18.8 | 15.2 |
+| MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 | **4.8** | **6.6** | 40.8 | 19.3 | 14.9 |
+| WhisperLah v1 | 22.2 | 19.5 | · | · | · | · | · |
+| **WhisperLah v2** · room mode | 16.8 | 19.0 | 6.2 | 23.6 | **29.5** | **14.3** | **11.1** |
+| **WhisperLah v2** · near-mic mode | **15.1** | **18.9** | · | · | · | · | · |
 
 Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao …), share of those in the reference:
 
@@ -144,6 +144,17 @@ recordings, and our check found 436 of its 3,747 clips inside just 20 of the
 171 MNSC Part 3 training shards. A model trained on the full corpus has
 therefore likely seen most of SASRBench's audio. That applies to MERaLiON-2,
 which was trained on NSC-derived data at scale, and not to WhisperLah.
+
+The read-speech tests (Parts 1 and 2) have a second, larger version of the
+same issue. Each is about 1,000 prompt sentences, each read by three speakers,
+and the same prompts recur across the training split: a single one of our
+training shards already contains the text of 2.1% (Part 2) to 3.7% (Part 1) of
+the test clips. Across the 727–771 training shards of each part, essentially
+every test sentence appears in training text. Clips overlapping *our* training
+text are excluded, but a model trained on the full split, as MERaLiON-2 likely
+was, has read every test sentence. Its lead on Parts 1 and 2 should be read
+with that in mind; the conversational tests (Parts 3–6, SASRBench) have no
+such recurring prompts.
 
 **Scoring.** `jiwer` WER after one normaliser applied identically to every
 reference and hypothesis (`scripts/common.py`): NSC markup removed
