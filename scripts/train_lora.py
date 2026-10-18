@@ -39,6 +39,9 @@ def main():
     ap.add_argument("--data", default="v1", help="comma list of feature stores: v1 (Part 3 slice), v2 (all parts)")
     ap.add_argument("--init", help="LoRA adapter to continue training from")
     ap.add_argument("--specaug", action="store_true", help="SpecAugment time + frequency masking")
+    ap.add_argument("--weights", default="",
+                    help='per-source sampling weights, e.g. "AMI-IHM=3,AMI-SDM=3": a weight of 3 draws that '
+                         'source three times as often as its share of clips; unlisted sources weigh 1')
     ap.add_argument("--start_pos", type=int, default=0,
                     help="skip this many samples of the seed's shuffle, to continue a run on the clips it has not seen")
     args = ap.parse_args()
@@ -91,6 +94,18 @@ def main():
         seqs.append((full[:-1], lab))
     keep = [i for i, t in enumerate(texts) if len(t.split()) >= 3]
     print(f"{len(keep)} usable clips of {len(texts)}", flush=True)
+    # weighted sampling: an epoch is still len(keep) draws, but sources with a
+    # weight above 1 are drawn proportionally more often (with replacement)
+    weights = {kv.split("=")[0]: float(kv.split("=")[1]) for kv in args.weights.split(",") if kv}
+    if weights:
+        pw = np.array([weights.get(clips[i][2], 1.0) for i in keep])
+        pw /= pw.sum()
+        print("sampling weights:", weights, flush=True)
+
+    def permutation():
+        if weights:
+            return rng.choice(keep, size=len(keep), replace=True, p=pw)
+        return rng.permutation(keep)
 
     model = WhisperForConditionalGeneration.from_pretrained(
         BASE, torch_dtype=torch.bfloat16, attn_implementation="sdpa")
@@ -132,13 +147,13 @@ def main():
             lab[r, :len(l)] = torch.tensor(l)
         return x, dec.to("cuda"), lab.to("cuda")
 
-    order, pos = rng.permutation(keep), args.start_pos
+    order, pos = permutation(), args.start_pos
     log = open(f"{out_dir}/train_log.jsonl", "a")
     t0, run_loss = time.time(), []
     for step in range(1, args.steps + 1):
         for _ in range(args.accum):
             if pos + args.bs > len(order):
-                order, pos = rng.permutation(keep), 0
+                order, pos = permutation(), 0
             ix = order[pos:pos + args.bs]
             pos += args.bs
             x, dec, y = batch(ix)

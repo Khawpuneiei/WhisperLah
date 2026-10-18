@@ -41,6 +41,15 @@ TEST_SETS = {
 for _p in (1, 2, 4, 5, 6):
     TEST_SETS[f"mnsc_part{_p}"] = (
         f"{ROOT}/data/Multitask-National-Speech-Corpus-v1/ASR-PART{_p}-Test/*.parquet", "context", "answer")
+# English: the Open ASR Leaderboard's own test files (hf-audio/esb-datasets-test-only-sorted)
+TEST_SETS.update({
+    "librispeech_clean": (f"{ROOT}/data/esb/librispeech/test.clean-*.parquet", "audio", "text"),
+    "librispeech_other": (f"{ROOT}/data/esb/librispeech/test.other-*.parquet", "audio", "text"),
+    "ami": (f"{ROOT}/data/esb/ami/test-*.parquet", "audio", "text"),          # meetings, headset mics
+    "ami_sdm": (f"{ROOT}/data/ami/sdm/test/*.parquet", "audio", "text"),      # same meetings, one distant table mic
+    # our own: two-person Singlish coffee chats, phone on the table (scripts/kopichat/)
+    "kopichat": (f"{ROOT}/data/kopichat/test.parquet", "audio", "text"),
+})
 TRAIN_GLOB = f"{ROOT}/data/Multitask-National-Speech-Corpus-v1/ASR-PART3-Train/*.parquet"
 
 

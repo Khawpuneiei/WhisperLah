@@ -16,6 +16,7 @@ MODELS = [
     ("whisperlah-v2.1-near", "**WhisperLah v2.1** · near-mic mode"),
 ]
 SETS = [
+    ("kopichat", "KopiChat café chats"),
     ("sasrbench", "SASRBench-v1"),
     ("mnsc_part3", "NSC P3 conversation"),
     ("mnsc_part1", "NSC P1 read"),
@@ -23,6 +24,10 @@ SETS = [
     ("mnsc_part4", "NSC P4 conversation"),
     ("mnsc_part5", "NSC P5 conversation"),
     ("mnsc_part6", "NSC P6 conversation"),
+    ("ami", "AMI meetings, headset mic (English)"),
+    ("ami_sdm", "AMI meetings, table mic (English)"),
+    ("librispeech_clean", "LibriSpeech clean (English)"),
+    ("librispeech_other", "LibriSpeech other (English)"),
 ]
 
 

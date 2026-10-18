@@ -20,7 +20,8 @@ from common import ROOT, Normalizer, wer_report
 
 PARTICLES = {"lah", "leh", "lor", "meh", "sia", "hor", "mah", "liao", "hah", "huh", "wah", "alamak"}
 SKIP = {"smoke", "speedtest"}
-SETS = ("sasrbench", "mnsc_part3", "mnsc_part1", "mnsc_part2", "mnsc_part4", "mnsc_part5", "mnsc_part6")
+SETS = ("kopichat", "sasrbench", "mnsc_part3", "mnsc_part1", "mnsc_part2", "mnsc_part4", "mnsc_part5", "mnsc_part6",
+        "ami", "ami_sdm", "librispeech_clean", "librispeech_other")
 
 
 def particle_recall(pairs):

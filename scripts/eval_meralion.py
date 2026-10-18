@@ -28,12 +28,20 @@ def main():
     ap.add_argument("--limit", type=int)
     ap.add_argument("--bs", type=int, default=4)
     ap.add_argument("--name")
+    ap.add_argument("--load-in-4bit", action="store_true", help="NF4 weights via bitsandbytes: the 10B fits in 8 GB")
     args = ap.parse_args()
     name = args.name or args.model.split("/")[-1]
 
     processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        args.model, use_safetensors=True, trust_remote_code=True, torch_dtype=torch.bfloat16).to("cuda").eval()
+    kw = dict(use_safetensors=True, trust_remote_code=True, torch_dtype=torch.bfloat16)
+    if args.load_in_4bit:
+        from transformers import BitsAndBytesConfig
+        kw["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                                                       bnb_4bit_compute_dtype=torch.bfloat16)
+        kw["device_map"] = {"": 0}
+        model = AutoModelForSpeechSeq2Seq.from_pretrained(args.model, **kw).eval()
+    else:
+        model = AutoModelForSpeechSeq2Seq.from_pretrained(args.model, **kw).to("cuda").eval()
 
     rows = load_set(args.set, args.limit)
     audio = sorted(((i, decode_audio(b), ref) for i, b, ref in rows), key=lambda r: -len(r[1]))

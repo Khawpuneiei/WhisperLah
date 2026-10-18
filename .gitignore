@@ -7,3 +7,6 @@ __pycache__/
 results/log_*.txt
 results/setup.log
 results/download*.log
+.env*
+data/noise/
+data/kopichat/consent/
