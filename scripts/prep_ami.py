@@ -51,7 +51,16 @@ def main():
     fe = WhisperFeatureExtractor.from_pretrained("openai/whisper-large-v3-turbo")
     flat = open(STORE, "ab")
     pos = index["n_values"]
-    assert pos * 2 == os.path.getsize(STORE), "store and index disagree; refusing to append"
+    # the index is the source of truth: a run killed mid-shard leaves bytes past
+    # the index's end, which are discarded; anything shorter is a real fault
+    size = os.path.getsize(STORE)
+    assert size >= pos * 2, "store is shorter than the index; refusing to append"
+    if size > pos * 2:
+        flat.close()
+        with open(STORE, "r+b") as fh:
+            fh.truncate(pos * 2)
+        print(f"discarded {(size - pos * 2) / 2**20:.0f} MB of partial shard past the index", flush=True)
+        flat = open(STORE, "ab")
 
     def store(src, waves, texts):
         nonlocal pos
