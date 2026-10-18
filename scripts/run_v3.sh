@@ -5,12 +5,16 @@ cd "$(dirname "$0")"
 export HF_HUB_DISABLE_SYMLINKS_WARNING=1 PYTHONIOENCODING=utf-8
 PY=../.venv/Scripts/python.exe
 BASE=openai/whisper-large-v3-turbo
-STEPS=${STEPS:-6200}
-EXTRA=${EXTRA:-}            # e.g. --weights "AMI-IHM=2" once AMI is in the store
+STEPS=${STEPS:-7000}
+# English sources (AMI meetings, LibriSpeech) are in the store to stop the
+# English regression seen at the gate; drawn at 0.6x their share so the mix
+# stays mostly Singlish
+EXTRA=${EXTRA:---weights AMI-IHM=0.6,AMI-SDM=0.6,LIBRI=0.6}
 
 until grep -q ENGLISH_GATE_DONE ../results/log_english_gate.txt; do sleep 30; done
 until grep -q "^done:" ../results/log_prep_stream.txt; do sleep 30; done
 until grep -q PRE_V3_DONE ../results/log_pre_v3.txt 2>/dev/null; do sleep 30; done
+until grep -q DATA_V3_DONE ../results/log_data_v3.txt 2>/dev/null; do sleep 30; done
 if [ -f ../results/log_prep_noisy.txt ]; then
   until grep -q -E "added|SystemExit|Traceback" ../results/log_prep_noisy.txt; do sleep 30; done
 fi
