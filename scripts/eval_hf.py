@@ -61,8 +61,6 @@ def main():
             # higher temperature when the output compresses too well (a loop).
             # Applied to every model in the table alike.
             kw.update(temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0), compression_ratio_threshold=1.35, do_sample=False)
-        if args.prompt:
-            kw["prompt_ids"] = processor.get_prompt_ids(args.prompt, return_tensors="pt").to("cuda")
         if is_long:  # Whisper long-form: sequential 30 s windows
             kw.update(attention_mask=feats.attention_mask.to("cuda"), return_timestamps=True,
                       condition_on_prev_tokens=False)
@@ -71,6 +69,11 @@ def main():
             if args.len_cap:
                 cap = min(440, int(8 * max(len(w) for w in waves) / 16000) + 24)
             kw.update(max_new_tokens=cap)
+        if args.prompt:
+            kw["prompt_ids"] = processor.get_prompt_ids(args.prompt, return_tensors="pt").to("cuda")
+            # prompt + 4 start tokens + output must fit Whisper's 448 decoder positions
+            if "max_new_tokens" in kw:
+                kw["max_new_tokens"] = min(kw["max_new_tokens"], 448 - 4 - len(kw["prompt_ids"]) - 1)
         with torch.inference_mode():
             ids = model.generate(feats.input_features.to("cuda", torch.float16), **kw)
         texts = processor.batch_decode(ids, skip_special_tokens=True)

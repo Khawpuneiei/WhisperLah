@@ -1,40 +1,70 @@
 # WhisperLah: Singlish speech recognition
 
-A LoRA adapter for Whisper large-v3-turbo, trained on open Singlish speech, and
-a contamination-checked benchmark harness to measure it. Built for Rapport's
-transcription step, measured on Singlish conversation and adapted to it
-with a LoRA on Whisper large-v3-turbo. Everything here runs on one 8 GB laptop
-GPU (RTX 4060) in under a day: training took 97 minutes of GPU time.
+WhisperLah is a 56 MB LoRA adapter for `openai/whisper-large-v3-turbo`,
+trained on open Singlish speech from IMDA's National Speech Corpus, plus the
+contamination-checked benchmark harness used to measure it against every
+Singlish model we could run, including A*STAR's MERaLiON-2.
+
+Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time.
+
+**On both public Singlish benchmarks, WhisperLah v2 has the lowest word error rate of every model tested**: 15.1% on SASRBench-v1 (MERaLiON-2-3B 16.2%, public Singlish fine-tune 17.0%, Whisper large-v3-turbo 24.0%) and 18.9% on NSC two-person conversation (next best 26.2%). It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less.
+
+![WhisperLah v2 against other Singlish models](results/whisperlah_v2_chart.png)
 
 ## Results
 
-**MNSC Part 3 test**: 1,000 held-out two-speaker conversation clips, 7.7 h (primary)
+Word error rate, %, lower is better. Every model is scored on the same clips
+with the same text normaliser. Bold is the best score on each test set.
 
-| Model | WER ↓ | Singlish particles caught ↑ |
+| Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips |
 |---|---|---|
-| Whisper large-v3-turbo (no adaptation) | 27.7% | 10% |
-| Public Singlish fine-tune (`mjwong/whisper-large-v3-turbo-singlish`, full fine-tune) | 26.2% | 6% |
-| **Rapport LoRA (ours)** | **19.5%** | **74%** |
+| Whisper large-v3-turbo | 24.0 | 27.7 |
+| Public Singlish fine-tune (mjwong) | 17.0 | 26.2 |
+| MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 |
+| WhisperLah v1 | 22.2 | 19.5 |
+| **WhisperLah v2** · room mode | 16.8 | 19.0 |
+| **WhisperLah v2** · near-mic mode | **15.1** | **18.9** |
 
-8.2 points (30%) fewer word errors than the base model and 6.7 points (25%) fewer than the public
-Singlish model, on the kind of audio Rapport records: two people talking.
+Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao …), share of those in the reference:
 
-**SASRBench-v1**: 1,101 short single-speaker clips, ≈4.5 h (secondary)
-
-| Model | WER ↓ | Singlish particles caught ↑ |
+| Model | SASRBench-v1 | NSC P3 conversation |
 |---|---|---|
-| Whisper large-v3-turbo | 24.1% | 6% |
-| Public Singlish fine-tune | **17.1%** | 9% |
-| Rapport LoRA (ours) | 22.4% | **69%** |
+| Whisper large-v3-turbo | 5% | 10% |
+| Public Singlish fine-tune (mjwong) | 9% | 6% |
+| MERaLiON-2-3B (A*STAR) | 6% | 3% |
+| WhisperLah v1 | 69% | 74% |
+| **WhisperLah v2** · room mode | 69% | 74% |
+| **WhisperLah v2** · near-mic mode | 70% | 72% |
 
-Ours beats the base model here but not the public fine-tune, which was
-trained on exactly this format (≤20 s single-speaker clips). Our adapter only
-ever saw 30 s two-speaker windows and sometimes keeps talking past the end of a
-short clip (insertions: 4,976 vs 2,039 for the base). Mixing short crops into
-training is the fix; see *Limits*.
+Full numbers, including substitutions/deletions/insertions per model:
+`results/table.json`. Every hypothesis for every clip: `results/<set>__<model>.jsonl`.
 
-Results: `results/table.json`, chart: `results/singlish_asr_chart.png`,
-per-clip transcripts: `results/<set>__<model>.jsonl`.
+## Two modes: room and near-mic
+
+The two public Singlish benchmarks disagree about *whose* words count.
+
+- **NSC conversation tests** label everyone in the room.
+- **SASRBench** labels only the person wearing the close-talk mic, even
+  though the other speaker is audible in the recording.
+
+A model that writes down the background speaker is right for meeting notes and
+"wrong" for SASRBench. WhisperLah v1 did exactly that: its SASRBench errors
+were mostly the other person's real words, scored as insertions. The public
+Singlish fine-tune learned the opposite convention and drops the second speaker
+on NSC conversation.
+
+WhisperLah v2 learns both, switched by a Whisper text prompt:
+
+| Mode | How | Use it for |
+|---|---|---|
+| **Room** (default) | no prompt | meetings: transcribe everyone |
+| **Near-mic** | prompt `Near speaker only.` | a lapel or headset mic: transcribe the wearer |
+
+Near-mic mode is taught with synthetic data: single-speaker Singlish read
+speech with a random stretch of NSC Part 3 conversation mixed in 6–20 dB
+quieter, labelled with the near speaker's words only. The prompt tokens are
+masked out of the loss. Both modes are reported on every test, so the choice is
+visible rather than tuned per benchmark.
 
 ## Use it
 
@@ -46,100 +76,125 @@ from transformers import WhisperForConditionalGeneration, WhisperProcessor
 processor = WhisperProcessor.from_pretrained("openai/whisper-large-v3-turbo")
 model = WhisperForConditionalGeneration.from_pretrained(
     "openai/whisper-large-v3-turbo", torch_dtype=torch.float16).to("cuda")
-model = PeftModel.from_pretrained(model, "models/whisperlah-v1-lora").merge_and_unload()
+model = PeftModel.from_pretrained(model, "models/whisperlah-v2-lora").merge_and_unload()
 
-feats = processor(audio_16k, sampling_rate=16000, return_tensors="pt").input_features
-ids = model.generate(feats.to("cuda", torch.float16), language="en", task="transcribe",
-                     temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0), compression_ratio_threshold=1.35)
-print(processor.batch_decode(ids, skip_special_tokens=True)[0])
+feats = processor(audio_16k, sampling_rate=16000, return_tensors="pt").input_features.to("cuda", torch.float16)
+kw = dict(language="en", task="transcribe",
+          temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0), compression_ratio_threshold=1.35)
+
+room = model.generate(feats, **kw)                                   # everyone in the room
+near = model.generate(feats, **kw, max_new_tokens=438,               # only the near speaker
+                      prompt_ids=processor.get_prompt_ids("Near speaker only.", return_tensors="pt").to("cuda"))
+print(processor.batch_decode(room, skip_special_tokens=True)[0])
 ```
 
-The adapter (`models/whisperlah-v1-lora`, 56 MB, fp16) needs the base model
-`openai/whisper-large-v3-turbo` (MIT). Clips up to 30 s.
+Clips up to 30 s; split longer audio first. The adapter needs the base model
+`openai/whisper-large-v3-turbo` (MIT). v1 is kept in `models/whisperlah-v1-lora`.
 
-## Test sets
+## How v2 was built
 
-| Set | What it is | Size used | Licence |
-|---|---|---|---|
-| **MNSC Part 3 test** (primary) | Held-out, human-verified split of IMDA's National Speech Corpus Part 3: two Singaporeans in free conversation, ≤30 s clips, often both speakers in one clip. Released by A*STAR's MERaLiON team with standardised splits. | all 1,000 clips, 7.7 h | as published on Hugging Face (`MERaLiON/Multitask-National-Speech-Corpus-v1`), derived from IMDA NSC |
-| **SASRBench-v1** (secondary) | Public Singlish ASR benchmark, NSC Part 3 close-talk, 4–20 s single-speaker clips. | fixed random 1,200 of 3,747 clips, minus overlap (below) | MIT (`mjwong/SASRBench-v1`) |
+### Data: all six parts of the National Speech Corpus
 
-**Contamination check.** Both sets are cut from NSC Part 3, so clips in
-SASRBench may also be in our training slice. `prep_train.py` measures 8-gram
-overlap between every SASRBench reference and the training transcripts; 274 of
-3,747 clips overlap ≥30% and are excluded from *every* model's SASRBench score.
-MNSC train/test are separate published splits.
+| Source (IMDA NSC, via A*STAR MNSC) | What it is | Clips |
+|---|---|---|
+| Part 1 | read sentences | 2,929 |
+| Part 2 | read sentences with Singapore names and terms | 3,403 |
+| Part 3 | two-person free conversation (v1 slice + 8 new shards) | 11,257 |
+| Part 4 | conversation | 2,265 |
+| Part 5 | conversation | 1,871 |
+| Part 6 | conversation | 2,582 |
+| Near-mic mixtures | Parts 1–2 speech over quiet Part 3 conversation | 6,332 |
 
-## Scoring
+30,639 clips. Shards are taken evenly across each part for speaker spread.
 
-WER with `jiwer` after one normaliser applied identically to reference and
-hypothesis for every model (`scripts/common.py`):
-
-1. NSC markup removed: `<Speaker1>:` tags, `(uh) (ppl)` filler/paralinguistic
-   tags, `**` unintelligible, `#name#` markers, `~` truncation marks.
-2. Singlish particles kept: `[lah]` → `lah`. They are real words and the thing
-   generic models drop; normalising them away would hide the gap.
-3. Whisper's `EnglishTextNormalizer` (numbers, spelling, contractions, fillers),
-   spelled acronyms joined (`n_t_u`, `u s` → `ntu`, `us`), `yeah/yah` → `ya`, `ok` → `okay`.
-
-Numbers are therefore comparable across the models in this table, not with
-leaderboards that use a different normaliser.
-
-**Decoding.** Every model, both test sets: greedy, with Whisper's standard
-temperature fallback when an output's compression ratio exceeds 1.35 (the sign
-of a repetition loop, e.g. "ya, ya, ya, …"). The guard helps every model, not
-just ours: versus plain greedy, MNSC moves Whisper turbo 29.9% → 27.7% and the
-public fine-tune 29.3% → 26.2%; SASRBench moves Whisper turbo 26.0% → 24.1%
-and ours 28.9% → 22.4%. Plain-greedy runs are kept in `results/greedy/`.
-
-**Particle recall**: of the discourse particles in the reference (lah, leh,
-lor, meh, sia, hor, mah, liao, …), the share that also appear in the
-hypothesis.
-
-## Training
+### Training
 
 | | |
 |---|---|
 | Base | `openai/whisper-large-v3-turbo` (809 M params), frozen, bf16 |
-| Adapter | LoRA r=32, α=64, dropout 0.05 on q/k/v/out and fc1/fc2 in **encoder and decoder**: 27.9 M trainable (3.3%) |
-| Data | 12 of 171 MNSC Part 3 train shards, chosen evenly across the corpus for speaker spread: 6,754 clips, 51.9 h |
-| Targets | NSC markup cleaned as above, casing and punctuation kept, particles kept |
-| Optimiser | AdamW, lr 3e-4, cosine, warm-up 25 steps, batch 16 (4 × 4 accumulation), 500 steps ≈ 1.2 epochs |
-| Loss | 1.11 → 0.61 |
-| Cost | 97 min on one RTX 4060 laptop GPU, 3.1 GB peak with gradient checkpointing |
+| Adapter | LoRA r=32, α=64 on q/k/v/out and fc1/fc2 of encoder **and** decoder: 27.9 M trainable params |
+| Start | warm-started from v1 |
+| Augmentation | SpecAugment, 5% time and 5% frequency masking (10-frame spans) |
+| Schedule | AdamW, lr 2e-4, cosine with 70 warm-up steps, batch 16, 1,400 steps |
+| Hardware | one RTX 4060 laptop GPU, 3.2 GB peak, 4.5 h (v1: a further 1.6 h) |
 
-The encoder is adapted, not just the decoder: the gap on Singlish is mainly
-acoustic (accent, particles, fast overlapping turns), not vocabulary.
+The encoder is adapted, not just the decoder: most of the gap on Singlish is
+acoustic (accent, particles, fast overlapping turns), not vocabulary. Features
+are stored unpadded and rebuilt at batch time, verified identical to Whisper's
+own padding, which keeps 31 k clips in 8.5 GB.
+
+## Benchmark protocol
+
+| Test set | What it is | Clips used |
+|---|---|---|
+| SASRBench-v1 (`mjwong/SASRBench-v1`, MIT) | NSC Part 3 close-talk, single speaker, 4–20 s | fixed random 1,200 of 3,747 |
+| NSC Part 3 test (MNSC) | two-person conversation, ≤30 s | all 1,000 |
+| NSC Parts 1, 2 test (MNSC) | read speech | fixed random 500 each |
+| NSC Parts 4, 5, 6 test (MNSC) | conversation | fixed random 300 each |
+
+The MNSC test splits are the standardised held-out splits released by A*STAR's
+MERaLiON team, the same ones AudioBench reports as "IMDA Part 1–6 ASR".
+
+**Contamination.** Any test clip whose reference shares ≥30% of its 8-grams
+with *any* WhisperLah training transcript is excluded from *every* model's
+score (`prep_v2.py --check`, lists in `results/*_overlap_with_train.json`).
+Removed: SASRBench 145 of the 1,200 sampled clips, NSC P1 / P2 / P3 / P6 a
+handful each. One caveat we cannot remove: SASRBench is cut from NSC Part 3
+recordings, and our check found 436 of its 3,747 clips inside just 20 of the
+171 MNSC Part 3 training shards. A model trained on the full corpus has
+therefore likely seen most of SASRBench's audio. That applies to MERaLiON-2,
+which was trained on NSC-derived data at scale, and not to WhisperLah.
+
+**Scoring.** `jiwer` WER after one normaliser applied identically to every
+reference and hypothesis (`scripts/common.py`): NSC markup removed
+(`<Speaker1>:`, `(uh)`, `(ppl)`, `**`, `#…#`, `~`), Singlish particles kept
+(`[lah]` → `lah`), then Whisper's `EnglishTextNormalizer`, spelled acronyms
+joined, `yeah/yah` → `ya`, `ok` → `okay`. Numbers are comparable within this
+table, not with leaderboards that normalise differently.
+
+**Decoding.** Every Whisper-based model: greedy with Whisper's standard
+temperature fallback when an output's compression ratio exceeds 1.35, which
+catches repetition loops ("ya, ya, ya, …"). MERaLiON-2-3B: the authors'
+transcription prompt and settings, greedy, up to 320 new tokens.
 
 ## Reproduce
 
 ```bash
 uv venv --python 3.12 .venv
 uv pip install --python .venv/Scripts/python.exe torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
-uv pip install --python .venv/Scripts/python.exe transformers==4.46.3 peft==0.13.2 datasets==3.1.0 accelerate==1.1.1 jiwer soundfile librosa huggingface_hub==0.26.2 openai pyarrow pandas tqdm
-python scripts/download.py
+uv pip install --python .venv/Scripts/python.exe transformers==4.46.3 peft==0.13.2 datasets==3.1.0 accelerate==1.1.1 jiwer soundfile librosa huggingface_hub==0.26.2 pyarrow tqdm matplotlib
+# MERaLiON-2 pins transformers 4.50.1, so it gets its own environment
+uv venv --python 3.12 .venv-meralion
+uv pip install --python .venv-meralion/Scripts/python.exe torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+uv pip install --python .venv-meralion/Scripts/python.exe transformers==4.50.1 accelerate librosa soundfile pyarrow tqdm hf_xet
+
+python scripts/download.py && python scripts/download_v2.py
 cd scripts
-python prep_train.py
+python prep_train.py                                     # v1 features (Part 3 slice)
 python train_lora.py --steps 500 --save_every 125 --name lora-r32
-python eval_hf.py --model openai/whisper-large-v3-turbo --adapter ../runs/lora-r32/final --set mnsc_part3 --name lora-r32
-python eval_hf.py --model openai/whisper-large-v3-turbo --adapter ../runs/lora-r32/final --set sasrbench --limit 1200 --name lora-r32
-python report.py && python chart.py
+python prep_v2.py && python prep_near.py && python prep_v2.py --check
+python train_lora.py --steps 1400 --data v1,v2 --init ../runs/lora-r32/final --lr 2e-4 --specaug --save_every 200 --name v2
+bash run_v2_evals_b.sh                                   # every model, every test set
+python report.py && python table_md.py && python chart_v2.py
 ```
 
-## Limits, stated plainly
+## Limits
 
-- One training run, one seed, ~1.2 epochs over 12 of 171 Part 3 training
-  shards (7%). More data and steps are the obvious next lever.
-- Short clips: trained only on full 30 s windows, the adapter over-generates
-  on 4–20 s audio (see SASRBench). Next run: add random short crops and NSC
-  Parts 1–2 read speech to the mix.
-- Not yet compared with the production API: the OpenAI key was revoked during
-  this run. `scripts/eval_openai.py` is ready for a new key.
-- Whisper does not label speakers. In the product, the adapted model would
-  replace only the transcription step; speaker attribution still needs a
-  diarizer (pyannote or the current API).
-- MNSC Part 3 is close-talk, studio-quiet conversation. Noisy cafés are not
-  covered by this benchmark; that needs our own recordings.
+- One training run, one seed, 0.73 epoch over 30.6 k clips, about 7% of NSC.
+  More of the corpus is the obvious next step.
+- Whisper does not label speakers. In Rapport, WhisperLah replaces only the
+  transcription step; speaker attribution still needs a diarizer.
+- NSC is studio-quiet close-mic audio. Café noise is not covered by any of
+  these benchmarks.
+- Not yet compared with OpenAI's GPT-4o Transcribe: the API key was revoked
+  during the run. `scripts/eval_openai.py` is ready.
+
+## History
+
+- **v1**: LoRA on 52 h of NSC Part 3 conversation (500 steps). NSC P3 19.5%,
+  SASRBench 22.2%; its SASRBench errors were mostly the background speaker,
+  which led to v2's near-mic mode.
+- **v2**: all six NSC parts, near-mic mode, SpecAugment, warm start from v1.
 
 ## Data and attribution
 
@@ -147,6 +202,7 @@ Training and test audio come from IMDA's National Speech Corpus, through
 A*STAR MERaLiON's Multitask National Speech Corpus release on Hugging Face.
 Contains information from the National Speech Corpus accessed from IMDA, made
 available under the terms of the Singapore Open Data Licence version 1.0.
-SASRBench-v1 (`mjwong/SASRBench-v1`) is MIT-licensed. The per-clip result files
-include these reference transcripts so every number here can be re-scored.
-No audio is redistributed in this repository.
+SASRBench-v1 (`mjwong/SASRBench-v1`) is MIT-licensed. MERaLiON-2-3B is used
+for evaluation only, under its MERaLiON Public Licence. The per-clip result
+files include reference transcripts so every number can be re-scored; no
+audio is redistributed here.
