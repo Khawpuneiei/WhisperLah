@@ -9,6 +9,7 @@ MODELS = [
     ("whisper-large-v3-turbo", "Whisper large-v3-turbo"),
     ("mjwong-turbo-singlish", "Public Singlish fine-tune (mjwong)"),
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
+    ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe, diarize (OpenAI API)"),
     ("whisperlah-v1", "WhisperLah v1"),
     ("whisperlah-v2", "**WhisperLah v2** · room mode"),
     ("whisperlah-v2-near", "**WhisperLah v2** · near-mic mode"),
@@ -49,7 +50,7 @@ def main():
             if r is None:
                 cells.append("·")
             else:
-                v = f"{r['wer']:.1f}"
+                v = f"{r['wer']:.1f}" + ("†" if r["clips"] != clips[s] else "")
                 cells.append(f"**{v}**" if r["wer"] == best[s] else v)
         print(f"| {lab} | " + " | ".join(cells) + " |")
 

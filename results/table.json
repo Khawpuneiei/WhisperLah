@@ -15,6 +15,19 @@
  {
   "set": "sasrbench",
   "view": "full",
+  "model": "gpt-4o-transcribe-diarize",
+  "clips": 1055,
+  "excluded": 436,
+  "wer": 30.82,
+  "sub": 4105,
+  "del": 1123,
+  "ins": 5895,
+  "particle_recall": 14.3,
+  "particles_in_ref": 272
+ },
+ {
+  "set": "sasrbench",
+  "view": "full",
   "model": "mjwong-turbo-singlish",
   "clips": 1055,
   "excluded": 436,
@@ -118,6 +131,45 @@
  },
  {
   "set": "mnsc_part3",
+  "view": "common",
+  "model": "MERaLiON-2-3B",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 27.74,
+  "sub": 2235,
+  "del": 3010,
+  "ins": 1016,
+  "particle_recall": 2.0,
+  "particles_in_ref": 250
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "full",
+  "model": "gpt-4o-transcribe-diarize",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 30.52,
+  "sub": 3399,
+  "del": 1669,
+  "ins": 1819,
+  "particle_recall": 15.2,
+  "particles_in_ref": 250
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "common",
+  "model": "gpt-4o-transcribe-diarize",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 30.52,
+  "sub": 3399,
+  "del": 1669,
+  "ins": 1819,
+  "particle_recall": 15.2,
+  "particles_in_ref": 250
+ },
+ {
+  "set": "mnsc_part3",
   "view": "full",
   "model": "mjwong-turbo-singlish",
   "clips": 997,
@@ -128,6 +180,19 @@
   "ins": 2397,
   "particle_recall": 5.8,
   "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "common",
+  "model": "mjwong-turbo-singlish",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 27.23,
+  "sub": 2628,
+  "del": 2741,
+  "ins": 776,
+  "particle_recall": 6.8,
+  "particles_in_ref": 250
  },
  {
   "set": "mnsc_part3",
@@ -144,6 +209,19 @@
  },
  {
   "set": "mnsc_part3",
+  "view": "common",
+  "model": "whisper-large-v3-turbo",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 28.84,
+  "sub": 2343,
+  "del": 3232,
+  "ins": 934,
+  "particle_recall": 8.0,
+  "particles_in_ref": 250
+ },
+ {
+  "set": "mnsc_part3",
   "view": "full",
   "model": "whisperlah-v1",
   "clips": 997,
@@ -154,6 +232,19 @@
   "ins": 4497,
   "particle_recall": 73.7,
   "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "common",
+  "model": "whisperlah-v1",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 20.51,
+  "sub": 2104,
+  "del": 1096,
+  "ins": 1429,
+  "particle_recall": 68.4,
+  "particles_in_ref": 250
  },
  {
   "set": "mnsc_part3",
@@ -170,6 +261,19 @@
  },
  {
   "set": "mnsc_part3",
+  "view": "common",
+  "model": "whisperlah-v2-near",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 19.97,
+  "sub": 2022,
+  "del": 1174,
+  "ins": 1310,
+  "particle_recall": 65.6,
+  "particles_in_ref": 250
+ },
+ {
+  "set": "mnsc_part3",
   "view": "full",
   "model": "whisperlah-v2.1-near",
   "clips": 997,
@@ -180,6 +284,19 @@
   "ins": 4106,
   "particle_recall": 72.5,
   "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "common",
+  "model": "whisperlah-v2.1-near",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 19.9,
+  "sub": 2077,
+  "del": 1161,
+  "ins": 1254,
+  "particle_recall": 67.6,
+  "particles_in_ref": 250
  },
  {
   "set": "mnsc_part3",
@@ -196,6 +313,19 @@
  },
  {
   "set": "mnsc_part3",
+  "view": "common",
+  "model": "whisperlah-v2.1",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 20.09,
+  "sub": 2059,
+  "del": 1062,
+  "ins": 1414,
+  "particle_recall": 67.6,
+  "particles_in_ref": 250
+ },
+ {
+  "set": "mnsc_part3",
   "view": "full",
   "model": "whisperlah-v2",
   "clips": 997,
@@ -206,6 +336,19 @@
   "ins": 4374,
   "particle_recall": 74.0,
   "particles_in_ref": 792
+ },
+ {
+  "set": "mnsc_part3",
+  "view": "common",
+  "model": "whisperlah-v2",
+  "clips": 299,
+  "excluded": 3,
+  "wer": 20.02,
+  "sub": 2028,
+  "del": 1080,
+  "ins": 1411,
+  "particle_recall": 68.4,
+  "particles_in_ref": 250
  },
  {
   "set": "mnsc_part1",
@@ -531,5 +674,70 @@
   "ins": 730,
   "particle_recall": 83.8,
   "particles_in_ref": 37
+ },
+ {
+  "set": "ami",
+  "view": "full",
+  "model": "whisper-large-v3-turbo",
+  "clips": 11653,
+  "excluded": 0,
+  "wer": 14.88,
+  "sub": 4434,
+  "del": 7017,
+  "ins": 1799,
+  "particle_recall": 30.4,
+  "particles_in_ref": 23
+ },
+ {
+  "set": "librispeech_clean",
+  "view": "full",
+  "model": "whisper-large-v3-turbo",
+  "clips": 2620,
+  "excluded": 0,
+  "wer": 1.94,
+  "sub": 766,
+  "del": 161,
+  "ins": 101,
+  "particle_recall": null,
+  "particles_in_ref": 0
+ },
+ {
+  "set": "librispeech_clean",
+  "view": "full",
+  "model": "whisperlah-v2",
+  "clips": 2620,
+  "excluded": 0,
+  "wer": 2.17,
+  "sub": 873,
+  "del": 164,
+  "ins": 111,
+  "particle_recall": null,
+  "particles_in_ref": 0
+ },
+ {
+  "set": "librispeech_other",
+  "view": "full",
+  "model": "whisper-large-v3-turbo",
+  "clips": 2939,
+  "excluded": 0,
+  "wer": 3.91,
+  "sub": 1619,
+  "del": 207,
+  "ins": 241,
+  "particle_recall": 100.0,
+  "particles_in_ref": 1
+ },
+ {
+  "set": "librispeech_other",
+  "view": "full",
+  "model": "whisperlah-v2",
+  "clips": 2939,
+  "excluded": 0,
+  "wer": 4.68,
+  "sub": 1954,
+  "del": 262,
+  "ins": 257,
+  "particle_recall": 100.0,
+  "particles_in_ref": 1
  }
 ]

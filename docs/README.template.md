@@ -18,6 +18,12 @@ with the same text normaliser. Bold is the best score on each test set.
 
 <!--RESULTS_TABLE-->
 
+† GPT-4o Transcribe was run on 300 of the NSC Part 3 clips to keep API cost
+down (US$2.60 for both sets); on exactly those 299 scored clips WhisperLah v2
+is 20.0%, Whisper large-v3-turbo 28.8% and GPT-4o 30.5%. GPT-4o, like
+WhisperLah v1, writes down the background speaker on SASRBench, which that
+benchmark counts as insertions.
+
 Full numbers, including substitutions/deletions/insertions per model:
 `results/table.json`. Every hypothesis for every clip: `results/<set>__<model>.jsonl`.
 
@@ -179,8 +185,6 @@ python report.py && python table_md.py && python chart_v2.py
   transcription step; speaker attribution still needs a diarizer.
 - NSC is studio-quiet close-mic audio. Café noise is not covered by any of
   these benchmarks.
-- Not yet compared with OpenAI's GPT-4o Transcribe: the API key was revoked
-  during the run. `scripts/eval_openai.py` is ready.
 
 ## History
 
