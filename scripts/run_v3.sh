@@ -8,8 +8,10 @@ BASE=openai/whisper-large-v3-turbo
 STEPS=${STEPS:-7000}
 # English sources (AMI meetings, LibriSpeech) are in the store to stop the
 # English regression seen at the gate; drawn at 0.6x their share so the mix
-# stays mostly Singlish
-EXTRA=${EXTRA:---weights AMI-IHM=0.6,AMI-SDM=0.6,LIBRI=0.6}
+# stays mostly Singlish. NSC Part 2 (read sentences, 37k clips because its
+# shards are ten times denser than Part 3's) is held to 0.1x: it is there for
+# Singapore names only, and its prompt sentences recur in the test split.
+EXTRA=${EXTRA:---weights AMI-IHM=0.6,AMI-SDM=0.6,LIBRI=0.6,ASR-PART2-Train=0.1}
 
 until grep -q ENGLISH_GATE_DONE ../results/log_english_gate.txt; do sleep 30; done
 until grep -q "^done:" ../results/log_prep_stream.txt; do sleep 30; done
