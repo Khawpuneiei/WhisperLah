@@ -27,6 +27,48 @@ benchmark counts as insertions.
 Full numbers, including substitutions/deletions/insertions per model:
 `results/table.json`. Every hypothesis for every clip: `results/<set>__<model>.jsonl`.
 
+## Where WhisperLah v2 is best, and where it is not
+
+Lowest word error rate of every model we ran on the same clips (release adapter v2, best of room and near-mic mode):
+
+| Test set | WhisperLah v2 | Best other model | Result |
+|---|---|---|---|
+| SASRBench-v1, close-talk | **15.1** | 16.2 (MERaLiON-2-3B) | win |
+| NSC Part 3, two-person conversation | **18.9** | 26.2 (public Singlish fine-tune) | win |
+| NSC Part 4, conversation | **29.5** | 40.8 (MERaLiON-2-3B) | win |
+| NSC Part 5, conversation | **14.3** | 18.8 (public Singlish fine-tune) | win |
+| NSC Part 6, conversation | **11.1** | 14.9 (MERaLiON-2-3B) | win |
+| AMI meetings, headset mic (English) | **11.3** | 14.9 (Whisper large-v3-turbo) | win, vs Whisper only |
+| AMI meetings, table mic (English) | **33.0** | 34.1 (Whisper large-v3-turbo) | small win, vs Whisper only |
+| NSC Part 1, read speech | 6.2 | 4.8 (MERaLiON-2-3B) | behind |
+| NSC Part 2, read speech, local names | 23.6 | 6.6 (MERaLiON-2-3B) | behind |
+| LibriSpeech clean / other (English) | 2.2 / 4.7 | 1.9 / 3.9 (Whisper large-v3-turbo) | slight regression |
+
+Five of the seven Singlish test sets, including both public benchmarks, are
+won outright. The two losses are read-speech sets whose prompt sentences recur
+in the training data (see Benchmark protocol), so we are not chasing them. On
+English meetings, only base Whisper has been measured so far; other English
+models have not been run, so those two rows do not claim a leaderboard position.
+GPT-4o Transcribe is the weakest model measured on Singlish (30.8% SASRBench).
+
+## Next benchmarks to beat
+
+Chosen by what a meeting or coffee-chat product needs, and by what one 8 GB
+laptop GPU can reach (full reasoning in the repo's planning notes).
+
+| Target | Today | Aim | Status |
+|---|---|---|---|
+| **KopiChat**, our own café-chat set (phone on a table, two speakers; recording protocol in `scripts/kopichat/README.md`) | not recorded yet | lowest of every model and the OpenAI API | recordings and consent forms needed |
+| **NSC Parts 3 to 6**, further | 18.9 / 29.5 / 14.3 / 11.1 | lower again with v3 (about 5x more conversation data, café-noise mixing) | v3 training paused at step 5,350 of 7,000 |
+| **AMI table-mic meetings** (far-field) | 33.0 | well below Whisper's 34.1 | v3 probe on 40 clips showed about 26, indicative only |
+| **SASRBench vs MERaLiON-2-10B** | beat the 3B; 10B unmeasured | confirm the win against the 10B | 4-bit run too slow on 8 GB; needs a sample run |
+| **English regression gate** (LibriSpeech) | 0.3 and 0.8 pt behind base | within 0.5 pt of base | v3 adds LibriSpeech and AMI training data |
+| OpenAI and other closed APIs | GPT-4o measured on 2 sets | all Singlish sets, KopiChat; other vendors later | in progress |
+
+Not targeted: NSC Parts 1 and 2 (read speech), and large English leaderboards
+(Earnings-22, GigaSpeech, and similar). Those are decided by 10B-parameter
+models trained on 100k hours, and they do not match the product.
+
 ## Two modes: room and near-mic
 
 The two public Singlish benchmarks disagree about *whose* words count.
