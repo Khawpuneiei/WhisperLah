@@ -1,9 +1,11 @@
 # WhisperLah: Singlish speech recognition
 
 WhisperLah is a 56 MB LoRA adapter for `openai/whisper-large-v3-turbo`,
-trained on open Singlish speech from IMDA's National Speech Corpus, plus the
-contamination-checked benchmark harness used to measure it against every
-Singlish model we could run, including A*STAR's MERaLiON-2.
+trained on open Singlish speech from IMDA's National Speech Corpus. This repo
+holds the contamination-checked benchmark harness, training code and results
+used to measure it against every Singlish model we could run, including
+A*STAR's MERaLiON-2. **The trained weights are proprietary and are not
+published here.**
 
 Trained on one 8 GB laptop GPU (RTX 4060) in about 6 hours of GPU time (v1 1.6 h + v2 4.5 h).
 
@@ -130,7 +132,7 @@ from transformers import WhisperForConditionalGeneration, WhisperProcessor
 processor = WhisperProcessor.from_pretrained("openai/whisper-large-v3-turbo")
 model = WhisperForConditionalGeneration.from_pretrained(
     "openai/whisper-large-v3-turbo", torch_dtype=torch.float16).to("cuda")
-model = PeftModel.from_pretrained(model, "models/whisperlah-v2-lora").merge_and_unload()
+model = PeftModel.from_pretrained(model, "path/to/your/adapter"  # weights are not distributed in this repo).merge_and_unload()
 
 feats = processor(audio_16k, sampling_rate=16000, return_tensors="pt").input_features.to("cuda", torch.float16)
 kw = dict(language="en", task="transcribe",
@@ -143,7 +145,7 @@ print(processor.batch_decode(room, skip_special_tokens=True)[0])
 ```
 
 Clips up to 30 s; split longer audio first. The adapter needs the base model
-`openai/whisper-large-v3-turbo` (MIT). v1 is kept in `models/whisperlah-v1-lora`.
+`openai/whisper-large-v3-turbo` (MIT). The snippet shows how an adapter is loaded; the WhisperLah adapters themselves are not in this repo.
 
 ## How v2 was built
 
@@ -263,8 +265,7 @@ python report.py && python table_md.py && python chart_v2.py
   v2 never reached, restarting the learning-rate schedule at 1e-4. The rule set
   before scoring was "replace v2 only if the 7-set average improves". It did
   not: 17.00% against v2's 16.96%, better on Parts 1, 2, 5, 6 and worse on
-  SASRBench, Parts 3 and 4. The adapter is kept in `models/whisperlah-v2.1-lora`
-  and its row stays in the table.
+  SASRBench, Parts 3 and 4. Its row stays in the table.
 
 ## Data and attribution
 

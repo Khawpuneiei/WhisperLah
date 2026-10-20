@@ -10,3 +10,11 @@ results/download*.log
 .env*
 data/noise/
 data/kopichat/consent/
+
+# Proprietary: trained weights and adapters never go in the repo
+models/
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.gguf
