@@ -1,0 +1,90 @@
+# Serving WhisperLah
+
+Self-hosted transcription for Rapport/Lepaq: the WhisperLah v2 adapter merged
+into `whisper-large-v3-turbo`, run with CTranslate2 through faster-whisper,
+plus pyannote speaker diarization, behind a small HTTP server that returns the
+speaker-labelled segments Rapport's `lib/ai/transcribe.ts` expects.
+
+The merged model and the adapter are proprietary and stay on the serving
+machine (`models/` is gitignored).
+
+## Files
+
+| File | What |
+|---|---|
+| `convert_ct2.py` | merge adapter into the base model, convert to CTranslate2 |
+| `eval_ct2.py` | WER + speed of the converted model on the benchmark sets (same table as `eval_hf.py`) |
+| `server.py` | FastAPI server: `POST /transcribe`, `GET /health` |
+| `bench.py` | time a recording through the server and the OpenAI API, Rapport-style (600 s parts, 3 in flight) |
+| `test_assign.py` | unit tests for word-to-speaker attribution (CPU, no model) |
+
+## Setup (in the repo's `.venv`)
+
+```bash
+uv pip install --python .venv/Scripts/python.exe ctranslate2 faster-whisper fastapi uvicorn python-multipart httpx "pyannote.audio>=3.1"
+```
+
+pyannote needs a Hugging Face token with `pyannote/speaker-diarization-3.1`
+and `pyannote/segmentation-3.0` accepted on the Hub. Put it in `HF_TOKEN`.
+Without it the server runs ASR only and labels everything speaker `A`.
+
+## 1. Convert
+
+```bash
+python scripts/serve/convert_ct2.py --adapter models/whisperlah-v2-lora --out models/whisperlah-v2-ct2
+```
+
+One fp16 conversion serves fp16 and int8 inference (`compute_type` is chosen
+at load time).
+
+## 2. Check the conversion did not move WER
+
+```bash
+python scripts/serve/eval_ct2.py --model models/whisperlah-v2-ct2 --set mnsc_part3 --limit 300 --name ct2-fp16
+python scripts/serve/eval_ct2.py --model models/whisperlah-v2-ct2 --set mnsc_part3 --limit 300 --name ct2-int8 --compute int8_float16
+python scripts/serve/eval_ct2.py --model models/whisperlah-v2-ct2 --set sasrbench --limit 300 --name ct2-fp16-near --prompt "Near speaker only."
+```
+
+Gate: within 0.3 WER points of the HF numbers on the same 300 clips
+(`eval_hf.py --limit 300` draws the same clips, seed 0).
+
+## 3. Serve
+
+```bash
+WHISPERLAH_MODEL=models/whisperlah-v2-ct2 WHISPERLAH_COMPUTE=int8_float16 HF_TOKEN=hf_... \
+  python scripts/serve/server.py --port 8765
+curl -F file=@meeting.mp3 -F mode=room http://127.0.0.1:8765/transcribe
+```
+
+Response:
+
+```json
+{"duration": 612.4, "language": "en", "mode": "room", "diarized": true,
+ "segments": [{"speaker": "A", "start": 0.52, "end": 4.10, "text": "So how was the trip lah?"}, ...],
+ "timing": {"decode_s": 0.4, "asr_s": 9.8, "diarize_s": 6.1, "total_s": 16.3, "wall_s": 16.5}, "rtf": 0.0266}
+```
+
+`mode=near` sends the `Near speaker only.` prompt (lapel or headset mic).
+Set `WHISPERLAH_API_KEY` to require a bearer token.
+
+## 4. Benchmark against the API
+
+```bash
+python scripts/serve/bench.py path/to/meeting.m4a --openai --env-file ../rapport/.env.local --label 4060-int8
+```
+
+Appends one row per backend to `results/bench.jsonl`: wall-clock, RTF,
+segments, US$ per audio hour (OpenAI: $0.36; local: `--gpu-usd-per-hour` x
+wall-clock, 0 on your own laptop).
+
+## 5. Point Rapport at it
+
+In `rapport/.env.local`:
+
+```
+TRANSCRIBE_BACKEND=whisperlah
+WHISPERLAH_URL=http://127.0.0.1:8765
+WHISPERLAH_MODE=room
+```
+
+Everything downstream (speaker mapping, analysis, review) is unchanged.
