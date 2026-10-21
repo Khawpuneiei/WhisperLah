@@ -28,6 +28,12 @@ from typing import Optional
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
+if os.name == "nt":  # CTranslate2 finds cuBLAS/cuDNN on PATH; torch cu121 ships them in torch/lib
+    import importlib.util
+    _torch = importlib.util.find_spec("torch")
+    if _torch:
+        os.environ["PATH"] = os.path.join(os.path.dirname(_torch.origin), "lib") + os.pathsep + os.environ["PATH"]
+
 log = logging.getLogger("whisperlah")
 
 NEAR_PROMPT = "Near speaker only."
@@ -147,6 +153,7 @@ class Engine:
         with self.lock:
             t0 = time.time()
             segs, info = self.batched.transcribe(wav, **kw)
+            segs = list(segs)
             words = [Word(w.start, w.end, w.word.strip()) for s in segs for w in (s.words or [])]
             timing["asr_s"] = round(time.time() - t0, 3)
 
@@ -159,7 +166,14 @@ class Engine:
                 turns = [Turn(seg.start, seg.end, spk) for seg, _, spk in dia.itertracks(yield_label=True)]
                 timing["diarize_s"] = round(time.time() - t0, 3)
 
-        segments = relabel(assign_speakers(words, turns))
+        if turns:
+            segments = relabel(assign_speakers(words, turns))
+        else:
+            # No diarizer: keep Whisper's own segments (roughly one per
+            # sentence) rather than one block per request, so the transcript
+            # still reads and scrolls in Rapport. Everything is speaker A.
+            segments = [{"speaker": "A", "start": round(s.start, 3), "end": round(s.end, 3),
+                         "text": s.text.strip()} for s in segs if s.text.strip()]
         timing["total_s"] = round(sum(timing.values()), 3)
         return {
             "duration": round(duration, 3),

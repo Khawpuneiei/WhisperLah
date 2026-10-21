@@ -1,0 +1,11 @@
+# Serving extras on top of the training venv (torch 2.5.1 cu121, transformers 4.46.3, peft 0.13.2).
+#   uv pip install --python .venv/Scripts/python.exe -r scripts/serve/requirements.txt
+ctranslate2>=4.8,<5
+faster-whisper>=1.2,<2
+av<16          # PyAV 19 breaks faster-whisper 1.2 (decode_audio metadata_errors kwarg)
+fastapi
+uvicorn
+python-multipart
+httpx
+# Speaker diarization (optional; needs HF_TOKEN with the pyannote models accepted)
+# pyannote.audio>=3.1,<4

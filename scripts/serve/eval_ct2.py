@@ -22,6 +22,12 @@ from common import ROOT, Normalizer, decode_audio, load_set, save_jsonl, wer_rep
 
 TEMPERATURES = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
 
+if os.name == "nt":  # CTranslate2 finds cuBLAS/cuDNN on PATH; torch cu121 ships them in torch/lib
+    import importlib.util
+    _torch = importlib.util.find_spec("torch")
+    if _torch:
+        os.environ["PATH"] = os.path.join(os.path.dirname(_torch.origin), "lib") + os.pathsep + os.environ["PATH"]
+
 
 def transcribe_clip(model, wav, args):
     kw = dict(language="en", task="transcribe", beam_size=1, best_of=1,

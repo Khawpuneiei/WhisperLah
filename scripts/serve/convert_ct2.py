@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 import torch
-from transformers import WhisperForConditionalGeneration, WhisperProcessor
+from transformers import WhisperForConditionalGeneration, WhisperProcessor, WhisperTokenizerFast
 
 BASE = "openai/whisper-large-v3-turbo"
 
@@ -34,6 +34,13 @@ def main():
 
     from ctranslate2.converters import TransformersConverter
 
+    class _Converter(TransformersConverter):
+        # ctranslate2 >= 4.7 passes dtype=, which transformers < 4.56 calls torch_dtype=.
+        def load_model(self, model_class, model_name_or_path, **kwargs):
+            if "dtype" in kwargs:
+                kwargs["torch_dtype"] = kwargs.pop("dtype")
+            return super().load_model(model_class, model_name_or_path, **kwargs)
+
     out = Path(args.out)
     if out.exists():
         raise SystemExit(f"{out} exists; remove it first")
@@ -49,9 +56,10 @@ def main():
             print(f"merged {args.adapter} into {args.base}")
         model.save_pretrained(merged_dir, safe_serialization=True)
         WhisperProcessor.from_pretrained(args.base).save_pretrained(merged_dir)
+        WhisperTokenizerFast.from_pretrained(args.base).save_pretrained(merged_dir)  # writes tokenizer.json
         del model
 
-        conv = TransformersConverter(
+        conv = _Converter(
             str(merged_dir),
             copy_files=["tokenizer.json", "preprocessor_config.json"],
             load_as_float16=True,

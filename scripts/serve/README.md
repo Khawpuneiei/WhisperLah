@@ -21,7 +21,7 @@ machine (`models/` is gitignored).
 ## Setup (in the repo's `.venv`)
 
 ```bash
-uv pip install --python .venv/Scripts/python.exe ctranslate2 faster-whisper fastapi uvicorn python-multipart httpx "pyannote.audio>=3.1"
+uv pip install --python .venv/Scripts/python.exe -r scripts/serve/requirements.txt "pyannote.audio>=3.1"
 ```
 
 pyannote needs a Hugging Face token with `pyannote/speaker-diarization-3.1`
