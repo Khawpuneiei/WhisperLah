@@ -7,5 +7,8 @@ fastapi
 uvicorn
 python-multipart
 httpx
-# Speaker diarization (optional; needs HF_TOKEN with the pyannote models accepted)
-# pyannote.audio>=3.1,<4
+# Speaker diarization: pyannote community-1 needs pyannote.audio 4.x, which may
+# pull a newer torch than the training venv's 2.5.1. Install the server in its
+# own venv (.venv-serve) so training stays pinned:
+#   uv venv --python 3.12 .venv-serve
+#   uv pip install --python .venv-serve/Scripts/python.exe -r scripts/serve/requirements.txt "pyannote.audio>=4.0,<5"

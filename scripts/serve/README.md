@@ -18,15 +18,33 @@ machine (`models/` is gitignored).
 | `bench.py` | time a recording through the server and the OpenAI API, Rapport-style (600 s parts, 3 in flight) |
 | `test_assign.py` | unit tests for word-to-speaker attribution (CPU, no model) |
 
-## Setup (in the repo's `.venv`)
+## Setup
+
+ASR only (fits in the training `.venv`):
 
 ```bash
-uv pip install --python .venv/Scripts/python.exe -r scripts/serve/requirements.txt "pyannote.audio>=3.1"
+uv pip install --python .venv/Scripts/python.exe -r scripts/serve/requirements.txt
 ```
 
-pyannote needs a Hugging Face token with `pyannote/speaker-diarization-3.1`
-and `pyannote/segmentation-3.0` accepted on the Hub. Put it in `HF_TOKEN`.
-Without it the server runs ASR only and labels everything speaker `A`.
+With diarization (pyannote community-1 needs pyannote.audio 4.x, which may
+move torch, so use a separate venv):
+
+```bash
+uv venv --python 3.12 .venv-serve
+uv pip install --python .venv-serve/Scripts/python.exe -r scripts/serve/requirements.txt "pyannote.audio>=4.0,<5"
+```
+
+pyannote needs a Hugging Face token with
+`pyannote/speaker-diarization-community-1` accepted on the Hub (the
+`WHISPERLAH_DIARIZE=3.1` fallback needs `pyannote/speaker-diarization-3.1` and
+`pyannote/segmentation-3.0`). Put it in `HF_TOKEN`. Without it the server runs
+ASR only, returns Whisper's own sentence segments, and labels everything `A`.
+
+Chosen stack (21 Oct): WhisperLah v2 for ASR, pyannote community-1 for
+diarization (segmentation fine-tune later), pyannote's built-in WeSpeaker
+ResNet34 centroids as the speaker embedding, no fine-tune. The embedding
+comes free with diarization (`return_embeddings=True`); the response names
+the model with each vector so a later embedder swap stays traceable.
 
 ## 1. Convert
 
@@ -61,11 +79,20 @@ Response:
 ```json
 {"duration": 612.4, "language": "en", "mode": "room", "diarized": true,
  "segments": [{"speaker": "A", "start": 0.52, "end": 4.10, "text": "So how was the trip lah?"}, ...],
+ "speakers": {"A": {"embedding": [0.0123, ...], "model": "pyannote/wespeaker-voxceleb-resnet34-LM"}, "B": {...}},
  "timing": {"decode_s": 0.4, "asr_s": 9.8, "diarize_s": 6.1, "total_s": 16.3, "wall_s": 16.5}, "rtf": 0.0266}
 ```
 
+Speakers are `A`, `B`, … in order of first appearance within the request;
+`speakers[X].embedding` is that speaker's 256-dim centroid, for matching the
+same person across parts and across meetings. ASR and diarization hold
+separate locks, so with several parts in flight one part's ASR runs while
+another's diarization is still clustering on the CPU.
+
 `mode=near` sends the `Near speaker only.` prompt (lapel or headset mic).
-Set `WHISPERLAH_API_KEY` to require a bearer token.
+Set `WHISPERLAH_API_KEY` to require a bearer token. `WHISPERLAH_DIA_BATCH`
+(default 32) sets pyannote's segmentation and embedding batch sizes; 64 fits
+next to the int8 Whisper on 8 GB.
 
 ## 4. Benchmark against the API
 

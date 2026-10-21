@@ -1,7 +1,9 @@
 """WhisperLah transcription server: faster-whisper (CTranslate2) + speaker diarization.
 
-One process, one GPU, requests served one at a time. Returns the segment shape
-Rapport's `lib/ai/transcribe.ts` expects: speaker label, start, end, text.
+One process, one GPU. ASR and diarization hold separate locks, so one part's
+ASR overlaps another part's diarization. Returns the segment shape Rapport's
+`lib/ai/transcribe.ts` expects (speaker label, start, end, text) plus one
+embedding per speaker.
 
     WHISPERLAH_MODEL=models/whisperlah-v2-ct2 python scripts/serve/server.py --port 8765
 
@@ -12,8 +14,9 @@ Environment:
     WHISPERLAH_COMPUTE   float16 | int8_float16 | int8                     default float16
     WHISPERLAH_DEVICE    cuda | cpu                                        default cuda
     WHISPERLAH_BATCH     batch size for the VAD-chunked batched pipeline   default 16
-    WHISPERLAH_DIARIZE   pyannote | none                                   default pyannote if HF_TOKEN is set
-    HF_TOKEN             Hugging Face token with pyannote/speaker-diarization-3.1 accepted
+    WHISPERLAH_DIARIZE   community-1 | 3.1 | none                          default community-1 if HF_TOKEN is set
+    HF_TOKEN             Hugging Face token with the pyannote model accepted on the Hub
+    WHISPERLAH_DIA_BATCH segmentation/embedding batch size for pyannote     default 32
     WHISPERLAH_API_KEY   if set, requests must send `Authorization: Bearer <key>`
 """
 import argparse
@@ -38,6 +41,13 @@ log = logging.getLogger("whisperlah")
 
 NEAR_PROMPT = "Near speaker only."
 TEMPERATURES = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+
+# Chosen stack (21 Oct 2026): pyannote community-1 for diarization, its built-in
+# WeSpeaker ResNet34 centroids as the speaker embedding, no fine-tuning.
+DIARIZERS = {
+    "community-1": ("pyannote/speaker-diarization-community-1", "pyannote/wespeaker-voxceleb-resnet34-LM"),
+    "3.1": ("pyannote/speaker-diarization-3.1", "pyannote/wespeaker-voxceleb-resnet34-LM"),
+}
 
 
 # ---------------------------------------------------------------- speaker attribution
@@ -101,9 +111,10 @@ def assign_speakers(words: list[Word], turns: list[Turn], default="A") -> list[d
     return [s for s in segments if s["text"]]
 
 
-def relabel(segments: list[dict]) -> list[dict]:
-    """pyannote names speakers SPEAKER_00, SPEAKER_01 …; Rapport stores A, B, C …"""
-    names = {}
+def relabel(segments: list[dict], names: Optional[dict] = None) -> list[dict]:
+    """pyannote names speakers SPEAKER_00, SPEAKER_01 …; Rapport stores A, B, C …
+    in order of first appearance. `names` (if given) collects the mapping."""
+    names = {} if names is None else names
     for s in segments:
         if s["speaker"] not in names:
             names[s["speaker"]] = chr(ord("A") + len(names))
@@ -114,25 +125,62 @@ def relabel(segments: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------- engine
 
 class Engine:
-    def __init__(self, model_dir, device, compute, batch_size, diarize, hf_token):
+    def __init__(self, model_dir, device, compute, batch_size, diarize, hf_token, dia_batch=32):
         from faster_whisper import BatchedInferencePipeline, WhisperModel
 
         t0 = time.time()
         self.model = WhisperModel(model_dir, device=device, compute_type=compute)
         self.batched = BatchedInferencePipeline(model=self.model)
         self.batch_size = batch_size
-        self.lock = threading.Lock()
+        # Separate locks: pyannote's clustering phase is CPU-bound, so the GPU
+        # can run the next part's ASR while this part is still being diarized.
+        self.asr_lock = threading.Lock()
+        self.dia_lock = threading.Lock()
         log.info("loaded %s (%s, %s) in %.1fs", model_dir, device, compute, time.time() - t0)
 
         self.diarizer = None
-        if diarize == "pyannote":
+        self.embedding_model = None
+        if diarize in DIARIZERS:
             import torch
             from pyannote.audio import Pipeline
 
+            name, self.embedding_model = DIARIZERS[diarize]
             t0 = time.time()
-            self.diarizer = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", use_auth_token=hf_token)
+            try:
+                self.diarizer = Pipeline.from_pretrained(name, token=hf_token)      # pyannote.audio 4.x
+            except TypeError:
+                self.diarizer = Pipeline.from_pretrained(name, use_auth_token=hf_token)  # 3.x
+            if self.diarizer is None:
+                raise SystemExit(f"could not load {name}: accept its terms on the Hub and set HF_TOKEN")
             self.diarizer.to(torch.device(device))
-            log.info("loaded pyannote diarization in %.1fs", time.time() - t0)
+            for attr in ("segmentation_batch_size", "embedding_batch_size"):
+                if hasattr(self.diarizer, attr):
+                    setattr(self.diarizer, attr, dia_batch)
+            log.info("loaded %s in %.1fs", name, time.time() - t0)
+
+    def diarize(self, wav) -> tuple[list[Turn], dict]:
+        """Run pyannote; return turns and {pyannote label: centroid embedding}.
+
+        pyannote.audio 4.x returns an object with `speaker_diarization`,
+        `exclusive_speaker_diarization` (one speaker at a time, cleaner for
+        word assignment) and `speaker_embeddings`; 3.x returns a tuple
+        (Annotation, embeddings). Both are handled.
+        """
+        import torch
+
+        out = self.diarizer({"waveform": torch.from_numpy(wav)[None], "sample_rate": 16000},
+                            return_embeddings=True)
+        if isinstance(out, tuple):
+            ann, emb = out
+        else:
+            ann = getattr(out, "exclusive_speaker_diarization", None) or out.speaker_diarization
+            emb = getattr(out, "speaker_embeddings", None)
+        turns = [Turn(seg.start, seg.end, spk) for seg, _, spk in ann.itertracks(yield_label=True)]
+        embeddings = {}
+        if emb is not None:
+            for label, vec in zip(ann.labels(), emb):
+                embeddings[label] = [round(float(x), 5) for x in vec]
+        return turns, embeddings
 
     def transcribe(self, path: str, mode: str, diarize: bool, language: Optional[str]) -> dict:
         from faster_whisper.audio import decode_audio
@@ -150,24 +198,26 @@ class Engine:
         if mode == "near":
             kw["initial_prompt"] = NEAR_PROMPT
 
-        with self.lock:
+        with self.asr_lock:
             t0 = time.time()
             segs, info = self.batched.transcribe(wav, **kw)
             segs = list(segs)
             words = [Word(w.start, w.end, w.word.strip()) for s in segs for w in (s.words or [])]
             timing["asr_s"] = round(time.time() - t0, 3)
 
-            turns = []
-            if diarize and self.diarizer is not None:
-                import torch
-
+        turns, embeddings = [], {}
+        if diarize and self.diarizer is not None:
+            with self.dia_lock:
                 t0 = time.time()
-                dia = self.diarizer({"waveform": torch.from_numpy(wav)[None], "sample_rate": 16000})
-                turns = [Turn(seg.start, seg.end, spk) for seg, _, spk in dia.itertracks(yield_label=True)]
+                turns, embeddings = self.diarize(wav)
                 timing["diarize_s"] = round(time.time() - t0, 3)
 
+        speakers = {}
         if turns:
-            segments = relabel(assign_speakers(words, turns))
+            names = {}
+            segments = relabel(assign_speakers(words, turns), names)
+            speakers = {names[label]: {"embedding": vec, "model": self.embedding_model}
+                        for label, vec in embeddings.items() if label in names}
         else:
             # No diarizer: keep Whisper's own segments (roughly one per
             # sentence) rather than one block per request, so the transcript
@@ -181,6 +231,7 @@ class Engine:
             "mode": mode,
             "diarized": bool(turns),
             "segments": segments,
+            "speakers": speakers,
             "timing": timing,
             "rtf": round(timing["total_s"] / duration, 4) if duration else None,
         }
@@ -237,7 +288,9 @@ def main():
     if not model_dir:
         raise SystemExit("set WHISPERLAH_MODEL to a CTranslate2 model dir (see convert_ct2.py)")
     hf_token = os.environ.get("HF_TOKEN")
-    diarize = os.environ.get("WHISPERLAH_DIARIZE", "pyannote" if hf_token else "none")
+    diarize = os.environ.get("WHISPERLAH_DIARIZE", "community-1" if hf_token else "none")
+    if diarize not in DIARIZERS and diarize != "none":
+        raise SystemExit(f"WHISPERLAH_DIARIZE must be one of {', '.join(DIARIZERS)} or none")
     engine = Engine(
         model_dir,
         device=os.environ.get("WHISPERLAH_DEVICE", "cuda"),
@@ -245,6 +298,7 @@ def main():
         batch_size=int(os.environ.get("WHISPERLAH_BATCH", "16")),
         diarize=diarize,
         hf_token=hf_token,
+        dia_batch=int(os.environ.get("WHISPERLAH_DIA_BATCH", "32")),
     )
     import uvicorn
 
