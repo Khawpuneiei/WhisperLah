@@ -16,10 +16,10 @@ def w(s, m):
 
 
 others = ["whisper-large-v3-turbo", "mjwong-turbo-singlish", "MERaLiON-2-3B"]
-OURS = [m for m in ("whisperlah-v2.1", "whisperlah-v2.1-near", "whisperlah-v2", "whisperlah-v2-near")]
+OURS = [m for m in ("whisperlah-v3", "whisperlah-v3-near", "whisperlah-v2.1", "whisperlah-v2.1-near", "whisperlah-v2", "whisperlah-v2-near")]
 LABEL = {"sasrbench": "SASRBench-v1", "mnsc_part3": "NSC Part 3", "mnsc_part1": "NSC Part 1",
          "mnsc_part2": "NSC Part 2", "mnsc_part4": "NSC Part 4", "mnsc_part5": "NSC Part 5", "mnsc_part6": "NSC Part 6"}
-VERSION = sys.argv[1] if len(sys.argv) > 1 else "whisperlah-v2"
+VERSION = sys.argv[1] if len(sys.argv) > 1 else "whisperlah-v3"
 
 
 def ours_best(s):
