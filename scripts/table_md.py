@@ -11,10 +11,12 @@ MODELS = [
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
     ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe, diarize (OpenAI API)"),
     ("whisperlah-v1", "WhisperLah v1"),
-    ("whisperlah-v2", "**WhisperLah v2** · room mode"),
-    ("whisperlah-v2-near", "**WhisperLah v2** · near-mic mode"),
-    ("whisperlah-v2.1", "**WhisperLah v2.1** · room mode"),
-    ("whisperlah-v2.1-near", "**WhisperLah v2.1** · near-mic mode"),
+    ("whisperlah-v2", "WhisperLah v2 · room mode"),
+    ("whisperlah-v2-near", "WhisperLah v2 · near-mic mode"),
+    ("whisperlah-v2.1", "WhisperLah v2.1 · room mode"),
+    ("whisperlah-v2.1-near", "WhisperLah v2.1 · near-mic mode"),
+    ("whisperlah-v3", "**WhisperLah v3** · room mode"),
+    ("whisperlah-v3-near", "**WhisperLah v3** · near-mic mode"),
 ]
 SETS = [
     ("kopichat", "KopiChat café chats"),

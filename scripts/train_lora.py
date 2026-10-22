@@ -13,6 +13,7 @@ import argparse
 import json
 import math
 import os
+import sys
 import time
 
 import numpy as np
@@ -44,8 +45,15 @@ def main():
                          'source three times as often as its share of clips; unlisted sources weigh 1')
     ap.add_argument("--start_pos", type=int, default=0,
                     help="skip this many samples of the seed's shuffle, to continue a run on the clips it has not seen")
+    ap.add_argument("--start_step", type=int, default=0,
+                    help="resume a run from this step: continues its cosine schedule (with a short re-warm-up "
+                         "for the fresh optimizer), step numbering and data stream; pair with --init <run>/step<N>")
     args = ap.parse_args()
     out_dir = f"{ROOT}/runs/{args.name}"
+    if sys.platform == "win32":
+        # ask Windows not to sleep while training (ES_CONTINUOUS | ES_SYSTEM_REQUIRED); released on exit
+        import ctypes
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
     os.makedirs(out_dir, exist_ok=True)
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
@@ -133,8 +141,12 @@ def main():
     params = [p for p in model.parameters() if p.requires_grad]
     opt = torch.optim.AdamW(params, lr=args.lr, weight_decay=0.01)
     warm = max(20, args.steps // 20)
+    s0 = args.start_step
+    # on resume the AdamW moments start from zero, so ramp back in over 50 steps
+    rewarm = 50 if s0 else 0
     sched = torch.optim.lr_scheduler.LambdaLR(
-        opt, lambda s: min(1.0, (s + 1) / warm) * max(0.0, 0.5 * (1 + math.cos(math.pi * min(1.0, s / args.steps)))))
+        opt, lambda s: min(1.0, (s + s0 + 1) / warm) * (min(1.0, (s + 1) / rewarm) if rewarm else 1.0)
+        * max(0.0, 0.5 * (1 + math.cos(math.pi * min(1.0, (s + s0) / args.steps)))))
 
     def batch(ix):
         x = torch.from_numpy(np.stack([feature(clips[i][0]) for i in ix]).astype(np.float32)).to("cuda", torch.bfloat16)
@@ -147,10 +159,10 @@ def main():
             lab[r, :len(l)] = torch.tensor(l)
         return x, dec.to("cuda"), lab.to("cuda")
 
-    order, pos = permutation(), args.start_pos
+    order, pos = permutation(), args.start_pos or s0 * args.bs * args.accum
     log = open(f"{out_dir}/train_log.jsonl", "a")
     t0, run_loss = time.time(), []
-    for step in range(1, args.steps + 1):
+    for step in range(s0 + 1, args.steps + 1):
         for _ in range(args.accum):
             if pos + args.bs > len(order):
                 order, pos = permutation(), 0
@@ -167,9 +179,9 @@ def main():
         opt.zero_grad(set_to_none=True)
 
         if step % 10 == 0 or step == args.steps:
-            el = time.time() - t0
+            el, done = time.time() - t0, step - s0
             rec = {"step": step, "loss": round(float(np.mean(run_loss)), 4), "lr": sched.get_last_lr()[0],
-                   "sec_per_step": round(el / step, 2), "eta_min": round(el / step * (args.steps - step) / 60, 1),
+                   "sec_per_step": round(el / done, 2), "eta_min": round(el / done * (args.steps - step) / 60, 1),
                    "epoch": round(step * args.bs * args.accum / len(keep), 2),
                    "gpu_gb": round(torch.cuda.max_memory_allocated() / 2**30, 2)}
             print(json.dumps(rec), flush=True)

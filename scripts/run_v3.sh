@@ -36,9 +36,9 @@ import json, re, glob
 best = None
 for f in glob.glob("../results/log_probe_mnsc_part3_step*.txt"):
     ck = re.search(r"(step\d+)", f).group(1)
-    w3 = float(re.search(r'"wer": ([\d.]+)', open(f).read()).group(1))
+    w3 = float(re.search(r'"wer": ([\d.]+)', open(f, encoding="utf-8").read()).group(1))
     fs = f.replace("mnsc_part3", "sasrbench")
-    ws = float(re.search(r'"wer": ([\d.]+)', open(fs).read()).group(1))
+    ws = float(re.search(r'"wer": ([\d.]+)', open(fs, encoding="utf-8").read()).group(1))
     score = (w3 + ws) / 2
     print(f"{ck:10} part3 {w3:5.2f}  sasr {ws:5.2f}  mean {score:5.2f}")
     if best is None or score < best[0]:
