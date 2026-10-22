@@ -1,6 +1,7 @@
 """Diarization error rate of a pyannote pipeline on one of our RTTM sets.
 
     .venv-diar/Scripts/python.exe scripts/diar/eval_der.py --split test --name community1 [--device cuda]
+    .venv-diar/Scripts/python.exe scripts/diar/eval_der.py --split test --name ft --segmentation runs/diar/seg-ft/epoch=09.ckpt
 
 Reads HF_TOKEN from .env.hf.txt (or .env.hf.txt.txt). Audio is passed in memory
 because torchcodec cannot decode files on this Windows setup. Scores with
@@ -15,7 +16,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-import soundfile as sf
+from scipy.io import wavfile
 import torch
 from pyannote.audio import Pipeline
 from pyannote.core import Annotation, Segment
@@ -50,6 +51,7 @@ def main():
     ap.add_argument("--name", required=True)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--segmentation", help="fine-tuned segmentation checkpoint to swap into community-1")
     args = ap.parse_args()
 
     d = ROOT / "data" / "diar" / args.split
@@ -57,12 +59,16 @@ def main():
     names = (d / f"{args.split}.lst").read_text().split()[: args.limit]
 
     pipe = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1", token=hf_token())
+    if args.segmentation:
+        from pyannote.audio import Model
+        pipe._segmentation.model = Model.from_pretrained(args.segmentation)
     pipe.to(torch.device(args.device))
 
     der0, der25 = DiarizationErrorRate(collar=0.0), DiarizationErrorRate(collar=0.25)
     hyp_lines, audio_s, t0 = [], 0.0, time.time()
     for k, name in enumerate(names):
-        wav, sr = sf.read(d / "wav" / f"{name}.wav", dtype="float32")
+        sr, wav = wavfile.read(d / "wav" / f"{name}.wav")  # .venv-diar has no soundfile
+        wav = wav.astype(np.float32) / 32768  # make_synth writes 16-bit PCM
         audio_s += len(wav) / sr
         out = pipe({"waveform": torch.from_numpy(wav)[None], "sample_rate": sr})
         hyp = getattr(out, "speaker_diarization", out)  # pyannote 4 returns an output object
