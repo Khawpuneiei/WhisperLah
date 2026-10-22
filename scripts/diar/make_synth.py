@@ -4,7 +4,7 @@ None of our Singlish audio comes with speaker start/end times, and MNSC Parts
 1 and 2 carry no speaker id either. Each MNSC row is one speaker reading one
 sentence, so a conversation is built from one clip per speaker: the clip is
 cut at its internal pauses and the pieces of 2 to 4 speakers are interleaved,
-with gaps, some overlap and a quick back-channel now and then. A speaker
+with gaps, frequent overlap and back-channels. A speaker
 therefore never needs a second clip, and the labels stay correct.
 
 Speech times come from an energy detector on each clean clip before mixing,
@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pyarrow.parquet as pq
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -97,9 +98,9 @@ def make_mix(clips, rng):
         t = prev_t
         if i:
             r = rng.random()
-            if r < 0.2:     # overlap: start before the previous piece ends
-                gap = -rng.uniform(0.2, max(0.25, min(1.5, 0.5 * prev_len)))
-            elif r < 0.3:   # quick hand-over
+            if r < 0.35:    # overlap: start before the previous piece ends
+                gap = -rng.uniform(0.3, max(0.35, min(2.5, 0.7 * prev_len)))
+            elif r < 0.5:   # quick hand-over
                 gap = rng.uniform(0.0, 0.15)
             else:           # ordinary pause
                 gap = rng.exponential(0.5)
@@ -107,7 +108,7 @@ def make_mix(clips, rng):
         placed.append((k, t, seg * gains[k], speech))
         prev_t, prev_len = t, len(seg) / SR
         # a short back-channel from another speaker over a long piece
-        if prev_len > 2.5 and len(spk_pieces) > 1 and rng.random() < 0.15:
+        if prev_len > 2.0 and len(spk_pieces) > 1 and rng.random() < 0.35:
             other = int(rng.choice([j for j in range(len(spk_pieces)) if j != k]))
             ow, ospeech = spk_pieces[other][-1]
             bc_len = int(min(len(ow), rng.uniform(0.3, 0.7) * SR))
@@ -132,21 +133,31 @@ def make_mix(clips, rng):
 
 
 def load_pool(patterns, need, rng, max_dur=12.0):
+    """Usable clips drawn evenly from every shard, at random rows.
+
+    Spreading the draw keeps both NSC parts in the mix and makes it unlikely
+    that two "speakers" of one conversation are the same unlabelled person.
+    """
     files = sorted(f for p in patterns for f in glob.glob(f"{MNSC}/{p}"))
     if not files:
         raise SystemExit(f"no shards match {patterns}")
+    per_file = int(np.ceil(1.3 * need / len(files)))  # headroom for clips the filters drop
     pool = []
     for f in files:
-        for _, b, _ in iter_parquet(f, "context", "answer"):
+        rows = pq.ParquetFile(f).metadata.num_rows
+        keep = set(rng.choice(rows, size=min(rows, per_file), replace=False).tolist())
+        got = 0
+        for i, b, _ in iter_parquet(f, "context", "answer"):
+            if i not in keep:
+                continue
             wav = decode_audio(b).astype(np.float32)
             if len(wav) / SR > max_dur:
                 continue
             reg = speech_regions(wav)
             if sum(e - s for s, e in reg) >= 1.0:
                 pool.append((wav, reg))
-        print(f"{f.split('/')[-1]}: pool {len(pool)}", flush=True)
-        if len(pool) >= need:
-            break
+                got += 1
+        print(f"{f.split('/')[-1]}: {got} clips, pool {len(pool)}", flush=True)
     rng.shuffle(pool)
     return pool
 
