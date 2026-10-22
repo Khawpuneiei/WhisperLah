@@ -13,6 +13,11 @@ Trained on one 8 GB laptop GPU (RTX 4060) in about 31 hours of GPU time (v1 1.6 
 
 ![WhisperLah v3 against other Singlish models](results/whisperlah_v3_chart.png)
 
+Each version, on the two public Singlish benchmarks and far-field English meetings
+(`scripts/chart_growth.py`):
+
+![WhisperLah word error rate by version](results/whisperlah_growth_chart.png)
+
 ## Results
 
 Word error rate, %, lower is better. Every model is scored on the same clips
@@ -254,7 +259,7 @@ python train_lora.py --steps 500 --save_every 125 --name lora-r32
 python prep_v2.py && python prep_near.py && python prep_v2.py --check
 python train_lora.py --steps 1400 --data v1,v2 --init ../runs/lora-r32/final --lr 2e-4 --specaug --save_every 200 --name v2
 bash run_v2_evals_b.sh                                   # every model, every test set
-python report.py && python table_md.py && python chart_v2.py whisperlah-v3 ../results/whisperlah_v3_chart.png
+python report.py && python table_md.py && python chart_v2.py whisperlah-v3 ../results/whisperlah_v3_chart.png && python chart_growth.py
 ```
 
 ## Limits
