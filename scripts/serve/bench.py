@@ -95,6 +95,8 @@ def main():
         "backend": args.label or "whisperlah-local", "diarized": health.get("diarize") and not args.no_diarize,
         "wall_s": round(wall, 1), "rtf": round(wall / (hours * 3600), 4),
         "asr_s": round(asr_s, 1), "diarize_s": round(dia_s, 1), "segments": n_seg,
+        "parts": len(res), "speakers": sum(len(r.get("speakers", {})) for r in res),
+        "redecoded": sum(r.get("redecoded", 0) for r in res),
         "usd_per_audio_hour": round(args.gpu_usd_per_hour * wall / 3600 / hours, 4),
     })
 

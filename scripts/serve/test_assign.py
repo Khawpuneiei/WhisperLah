@@ -1,9 +1,12 @@
-"""Unit checks for speaker attribution; no model needed.  python scripts/serve/test_assign.py"""
+"""Unit checks for speaker attribution and the server helpers; no model needed.
+
+    python scripts/serve/test_assign.py
+"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parent.as_posix())
-from server import Turn, Word, assign_speakers, relabel  # noqa: E402
+from server import Turn, Word, assign_speakers, embeddings_by_label, parse_bool_form, relabel  # noqa: E402
 
 
 def words(spec):
@@ -39,6 +42,35 @@ def test_no_turns_single_speaker():
 
 def test_empty():
     assert assign_speakers([], [Turn(0, 1, "S0")]) == []
+
+
+def test_embeddings_follow_full_labels():
+    # S1 only ever talks over someone, so the exclusive diarization drops it;
+    # S2 must still get the third centroid, not the second.
+    full_labels = ["S0", "S1", "S2"]
+    vectors = [[1.0, 0.0], [2.0, 0.0], [3.0, 0.0]]
+    emb = embeddings_by_label(full_labels, vectors)
+    assert emb["S2"] == [3.0, 0.0], emb
+    exclusive_turns = [Turn(0, 1, "S0"), Turn(1, 2, "S2")]
+    names = {}
+    relabel(assign_speakers(words([(0.1, 0.5, "a"), (1.1, 1.5, "b")]), exclusive_turns), names)
+    speakers = {names[k]: v for k, v in emb.items() if k in names}
+    assert speakers == {"A": [1.0, 0.0], "B": [3.0, 0.0]}, speakers
+
+
+def test_embeddings_missing():
+    assert embeddings_by_label(["S0"], None) == {}
+
+
+def test_parse_bool_form():
+    assert parse_bool_form(None) is True          # omitted: diarize by default
+    assert parse_bool_form("") is True
+    assert parse_bool_form("false") is False
+    assert parse_bool_form(" 0 ") is False
+    assert parse_bool_form("Off") is False
+    assert parse_bool_form("true") is True
+    assert parse_bool_form("1") is True
+    assert parse_bool_form(None, default=False) is False
 
 
 if __name__ == "__main__":

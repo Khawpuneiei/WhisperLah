@@ -15,8 +15,9 @@ machine (`models/` is gitignored).
 | `convert_ct2.py` | merge adapter into the base model, convert to CTranslate2 |
 | `eval_ct2.py` | WER + speed of the converted model on the benchmark sets (same table as `eval_hf.py`) |
 | `server.py` | FastAPI server: `POST /transcribe`, `GET /health` |
+| `fallback.py` | Whisper's temperature fallback with the same compression-ratio rule as `eval_hf.py` |
 | `bench.py` | time a recording through the server and the OpenAI API, Rapport-style (600 s parts, 3 in flight) |
-| `test_assign.py` | unit tests for word-to-speaker attribution (CPU, no model) |
+| `test_assign.py`, `test_fallback.py` | unit tests (CPU, no model) |
 
 ## Setup
 
@@ -64,7 +65,15 @@ python scripts/serve/eval_ct2.py --model models/whisperlah-v2-ct2 --set sasrbenc
 ```
 
 Gate: within 0.3 WER points of the HF numbers on the same 300 clips
-(`eval_hf.py --limit 300` draws the same clips, seed 0).
+(`eval_hf.py --limit 300` draws the same clips, seed 0). Add `--batched` to
+score exactly what the server does (batched greedy, then loops re-decoded).
+
+Fallback: transformers measures the compression ratio on token ids, where
+1.35 flags only real repetition loops; faster-whisper measures it on text,
+where 1.35 flags almost every clip, and its batched pipeline never falls back.
+`fallback.py` puts the token measure into faster-whisper and re-decodes only
+the looping segments, so both scripts and the server use eval_hf's rule. The
+row's `clips_redecoded` says how many clips needed it.
 
 ## 3. Serve
 
@@ -80,14 +89,20 @@ Response:
 {"duration": 612.4, "language": "en", "mode": "room", "diarized": true,
  "segments": [{"speaker": "A", "start": 0.52, "end": 4.10, "text": "So how was the trip lah?"}, ...],
  "speakers": {"A": {"embedding": [0.0123, ...], "model": "pyannote/wespeaker-voxceleb-resnet34-LM"}, "B": {...}},
- "timing": {"decode_s": 0.4, "asr_s": 9.8, "diarize_s": 6.1, "total_s": 16.3, "wall_s": 16.5}, "rtf": 0.0266}
+ "redecoded": 0,
+ "timing": {"decode_s": 0.4, "asr_s": 9.8, "diarize_s": 6.1, "total_s": 10.3, "wall_s": 10.5}, "rtf": 0.0168}
 ```
 
 Speakers are `A`, `B`, … in order of first appearance within the request;
 `speakers[X].embedding` is that speaker's 256-dim centroid, for matching the
-same person across parts and across meetings. ASR and diarization hold
-separate locks, so with several parts in flight one part's ASR runs while
-another's diarization is still clustering on the CPU.
+same person across parts and across meetings. `redecoded` counts segments
+that came out of the batched decode as a repetition loop and were decoded
+again with temperature fallback.
+
+Requests run off the event loop, and a request's diarization starts in its
+own thread while its ASR runs, so `total_s` is close to the slower of the two,
+not their sum. ASR and diarization hold separate locks, so with several parts
+in flight one part's ASR runs while another's diarization is clustering.
 
 `mode=near` sends the `Near speaker only.` prompt (lapel or headset mic).
 Set `WHISPERLAH_API_KEY` to require a bearer token. `WHISPERLAH_DIA_BATCH`
