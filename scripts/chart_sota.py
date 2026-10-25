@@ -21,6 +21,7 @@ OTHERS = [
     ("canary-1b-v2", "Canary 1B v2 (NVIDIA)", None),
     ("Voxtral-Mini-3B", "Voxtral Mini 3B (Mistral)", None),
     ("granite-speech-3.3-2b", "Granite Speech 3.3 2B (IBM)", None),
+    ("SenseVoice-Small", "SenseVoice Small (Alibaba)", None),
     ("Qwen2.5-Omni-3B", "Qwen2.5-Omni 3B (Alibaba)", None),
     ("mjwong-turbo-singlish", "Singlish fine-tune (mjwong)", (85.4, 74.8)),
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)", (85.4, 71.6)),
