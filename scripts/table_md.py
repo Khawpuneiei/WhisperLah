@@ -15,7 +15,6 @@ MODELS = [
     ("Voxtral-Mini-3B", "Voxtral Mini 3B (Mistral, 4-bit)"),
     ("granite-speech-3.3-2b", "Granite Speech 3.3 2B (IBM)"),
     ("Qwen2.5-Omni-3B", "Qwen2.5-Omni 3B (Alibaba)"),
-    ("SeaLLMs-Audio-7B", "SeaLLMs-Audio 7B (Alibaba DAMO, 4-bit)"),
     ("mjwong-turbo-singlish", "Public Singlish fine-tune (mjwong)"),
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
     ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B-ASR (A*STAR, 4-bit)"),

@@ -22,7 +22,6 @@ OTHERS = [
     ("Voxtral-Mini-3B", "Voxtral Mini 3B (Mistral)", None),
     ("granite-speech-3.3-2b", "Granite Speech 3.3 2B (IBM)", None),
     ("Qwen2.5-Omni-3B", "Qwen2.5-Omni 3B (Alibaba)", None),
-    ("SeaLLMs-Audio-7B", "SeaLLMs-Audio 7B (Alibaba DAMO)", None),
     ("mjwong-turbo-singlish", "Singlish fine-tune (mjwong)", (85.4, 74.8)),
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)", (85.4, 71.6)),
     ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B, 4-bit (A*STAR)†", (85.4, 69.4)),
