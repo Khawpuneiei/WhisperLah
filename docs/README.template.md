@@ -25,11 +25,24 @@ with the same text normaliser. Bold is the best score on each test set.
 
 <!--RESULTS_TABLE-->
 
-† GPT-4o Transcribe was run on 300 of the NSC Part 3 clips to keep API cost
-down (US$2.60 for both sets); on exactly those 299 scored clips WhisperLah v2
-(the release at the time) is 20.0%, Whisper large-v3-turbo 28.8% and GPT-4o 30.5%. GPT-4o, like
-WhisperLah v1, writes down the background speaker on SASRBench, which that
-benchmark counts as insertions.
+**OpenAI API settings.** Each OpenAI model is shown at the setting that
+scored better for it. GPT Transcribe and GPT-4o Transcribe use
+`chunking_strategy="auto"`: without it GPT-4o Transcribe stops early and drops
+most of each clip (58.4% on SASRBench), and even with it, deletions make up
+most of its errors. GPT-4o mini Transcribe is shown without chunking, which is
+better for it on every set (with chunking: 26.8% on SASRBench). Whisper-1 gets
+`language="en"`, as every local Whisper run does; left to auto-detect, it
+translated the Singlish into Malay (97% on SASRBench). Whisper-1 was scored on
+the two public benchmarks only. The other runs are kept in `results/` as
+`-nochunk` and `-autolang`. GPT-4o Transcribe diarize, like WhisperLah v1,
+writes down the background speaker on SASRBench, which that benchmark counts
+as insertions. OpenAI API cost for all of this: about US$48.
+
+**Other notes.** Canary 1B v2 falls into repetition loops on long
+conversation clips (outputs of up to 1,000 words), which is its 58.5% on NSC
+Part 3; Parts 4 to 6 were stopped for that reason. † MERaLiON-2-10B-ASR is
+scored on a fixed 300-clip sample of NSC Part 3: in 4-bit on the 8 GB GPU it
+runs at about 4x real time.
 
 Full numbers, including substitutions/deletions/insertions per model:
 `results/table.json`. Every hypothesis for every clip: `results/<set>__<model>.jsonl`.
@@ -53,14 +66,16 @@ Lowest word error rate of every model we ran on the same clips (release adapter 
 | LibriSpeech other (English) | 4.5 | 4.7 | 3.9 (Whisper large-v3-turbo) | 0.6 pt behind base |
 
 Five of the seven Singlish test sets, including both public benchmarks, are
-won outright by a WhisperLah model, and v3 improves on v2 on six of the seven
-(Part 5 is flat). The two losses are read-speech sets whose prompt sentences
-recur in the training data (see Benchmark protocol), so we are not chasing
-them. The largest v3 gain is on far-field English meetings: AMI table mic
-falls from 33.0 to 24.9, from v3's AMI training data. On English meetings,
-only base Whisper has been measured so far; other English models have not
-been run, so those rows do not claim a leaderboard position. GPT-4o
-Transcribe is the weakest model measured on Singlish (30.8% SASRBench).
+won outright by a WhisperLah model, against every open model and OpenAI API
+we could run, and v3 improves on v2 on six of the seven (Part 5 is flat). The
+two losses are read-speech sets whose prompt sentences recur in the training
+data (see Benchmark protocol), so we are not chasing them. The closest outside
+model is OpenAI's GPT Transcribe: 1.0 pt behind v3's near-mic mode on
+SASRBench, and 2.5 to 9 pt behind on NSC Parts 3 to 6. The largest
+v3 gain is on far-field English meetings: AMI table mic falls from 33.0 to
+24.9, from v3's AMI training data. On English meetings, only base Whisper has
+been measured so far; other English models have not been run, so those rows
+do not claim a leaderboard position.
 
 **Release gate.** Set before scoring: v3 must improve NSC Part 3, be no more
 than 0.5 pt worse than v2 on any set, and stay within 0.5 pt of base Whisper
@@ -79,9 +94,9 @@ laptop GPU can reach (full reasoning in the repo's planning notes).
 | **KopiChat**, our own café-chat set (phone on a table, two speakers; recording protocol in `scripts/kopichat/README.md`) | not recorded yet | lowest of every model and the OpenAI API | recordings and consent forms needed |
 | **NSC Parts 3 to 6**, further | 17.9 / 27.8 / 14.3 / 10.7 (v3) | lower again, especially Part 5 | v3 done: 3 of 4 improved, Part 5 flat |
 | **AMI table-mic meetings** (far-field) | 24.9 (v3) | well below Whisper's 34.1 | done with v3: 9.2 pt below Whisper |
-| **SASRBench vs MERaLiON-2-10B** | beat the 3B; 10B unmeasured | confirm the win against the 10B | 4-bit run too slow on 8 GB; needs a sample run |
+| **SASRBench vs MERaLiON-2-10B** | 14.8 (v3 near-mic) vs 16.7 | confirm the win against the 10B | done in 4-bit (19 h on 8 GB); NSC Part 3 on a 300-clip sample |
 | **English regression gate** (LibriSpeech) | clean level with base, other 0.6 pt behind (v3) | within 0.5 pt of base | clean met; other missed by 0.1 pt |
-| OpenAI and other closed APIs | GPT-4o measured on 2 sets | all Singlish sets, KopiChat; other vendors later | in progress |
+| OpenAI and other closed APIs | all four OpenAI transcription models on all 7 Singlish sets (Whisper-1 on 2) | KopiChat; other vendors | OpenAI done: best is GPT Transcribe, behind v3 on 6 of 7 sets |
 
 Not targeted: NSC Parts 1 and 2 (read speech), and large English leaderboards
 (Earnings-22, GigaSpeech, and similar). Those are decided by 10B-parameter
@@ -238,8 +253,15 @@ table, not with leaderboards that normalise differently.
 
 **Decoding.** Every Whisper-based model: greedy with Whisper's standard
 temperature fallback when an output's compression ratio exceeds 1.35, which
-catches repetition loops ("ya, ya, ya, …"). MERaLiON-2-3B: the authors'
-transcription prompt and settings, greedy, up to 320 new tokens.
+catches repetition loops ("ya, ya, ya, …"). MERaLiON-2-3B and -10B-ASR: the
+authors' transcription prompt and settings, greedy, up to 320 new tokens; the
+10B in 4-bit NF4 (`eval_meralion.py --load-in-4bit`) to fit 8 GB. Parakeet
+TDT 0.6B v3 and Canary 1B v2: the ONNX exports through `onnx-asr`
+(`eval_onnxasr.py`). Voxtral Mini 3B: 4-bit NF4 through the Transformers
+transcription request (`eval_voxtral.py`). Granite Speech 3.3 2B: the model
+card's transcription prompt (`eval_granite.py`). Every model is run in English
+with its own default greedy decoding and no prompt tricks; OpenAI settings are
+above.
 
 ## Reproduce
 

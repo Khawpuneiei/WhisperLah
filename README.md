@@ -9,7 +9,7 @@ published here.**
 
 Trained on one 8 GB laptop GPU (RTX 4060) in about 31 hours of GPU time (v1 1.6 h, v2 4.5 h, v3 about 25 h).
 
-**Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, including both public benchmarks: 14.8% on SASRBench-v1 (MERaLiON-2-3B 16.2%, public Singlish fine-tune 17.0%, Whisper large-v3-turbo 24.0%) and 18.0% on NSC two-person conversation (next best 26.2%). Behind on NSC Part 1 (6.0% vs 4.8% for MERaLiON-2-3B) and NSC Part 2 (21.7% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less.
+**Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, against 13 other models and API settings, including both public benchmarks: 14.8% on SASRBench-v1 (next best 15.8%, OpenAI's GPT Transcribe) and 18.0% on NSC two-person conversation (next best 25.2%, Distil-Whisper large-v3.5). Behind on NSC Part 1 (6.0% vs 4.8% for MERaLiON-2-3B) and NSC Part 2 (21.7% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that other models drop: 76% of them on NSC Part 3, against 50% for the next best (OpenAI's GPT Transcribe) and 10% or less for 6 of the 12 others.
 
 ![WhisperLah v3 against other Singlish models](results/whisperlah_v3_chart.png)
 
@@ -25,10 +25,19 @@ with the same text normaliser. Bold is the best score on each test set.
 
 | Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips | NSC P1 read<br>484 clips | NSC P2 read, local names<br>490 clips | NSC P4 conversation<br>300 clips | NSC P5 conversation<br>300 clips | NSC P6 conversation<br>300 clips | AMI meetings, headset mic (English)<br>11653 clips | AMI meetings, table mic (English)<br>11653 clips | LibriSpeech clean (English)<br>2620 clips | LibriSpeech other (English)<br>2939 clips |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Whisper large-v3-turbo | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 | 14.9 | 34.1 | **1.9** | **3.9** |
+| Whisper large-v3-turbo (OpenAI, the base model) | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 | 14.9 | 34.1 | **1.9** | **3.9** |
+| Whisper large-v3 (OpenAI) | 22.3 | 25.7 | 6.7 | 31.0 | 42.6 | 20.6 | 16.6 | · | · | · | · |
+| Distil-Whisper large-v3.5 | 21.8 | 25.2 | 7.5 | 34.6 | 43.7 | 17.5 | 15.4 | · | · | · | · |
+| Parakeet TDT 0.6B v3 (NVIDIA) | 26.1 | 25.2 | 5.3 | 34.9 | 42.7 | 16.3 | 13.5 | · | · | · | · |
+| Canary 1B v2 (NVIDIA) | 27.5 | 58.5 | 5.2 | 36.9 | · | · | · | · | · | · | · |
 | Public Singlish fine-tune (mjwong) | 17.0 | 26.2 | 8.9 | 31.0 | 41.2 | 18.8 | 15.2 | · | · | · | · |
 | MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 | **4.8** | **6.6** | 40.8 | 19.3 | 14.9 | · | · | · | · |
-| GPT-4o Transcribe, diarize (OpenAI API) | 30.8 | 30.5† | · | · | · | · | · | · | · | · | · |
+| MERaLiON-2-10B-ASR (A*STAR, 4-bit) | 16.7 | · | · | · | · | · | · | · | · | · | · |
+| GPT Transcribe (OpenAI API) | 15.8 | 26.9 | 5.3 | 29.2 | 34.3 | 16.9 | 14.8 | · | · | · | · |
+| GPT-4o Transcribe (OpenAI API) | 40.6 | 63.5 | 7.5 | 35.3 | 69.1 | 49.5 | 40.2 | · | · | · | · |
+| GPT-4o mini Transcribe (OpenAI API) | 18.7 | 28.2 | 7.1 | 39.2 | 43.6 | 22.1 | 17.6 | · | · | · | · |
+| GPT-4o Transcribe, diarize (OpenAI API) | 30.8 | 28.5 | 8.3 | 33.6 | 50.3 | 19.0 | 16.0 | · | · | · | · |
+| Whisper-1 (OpenAI API) | 24.0 | 25.9 | · | · | · | · | · | · | · | · | · |
 | WhisperLah v1 | 22.2 | 19.5 | · | · | · | · | · | · | · | · | · |
 | WhisperLah v2 · room mode | 16.8 | 19.0 | 6.2 | 23.6 | 29.5 | 14.3 | 11.1 | 11.3 | 33.0 | 2.2 | 4.7 |
 | WhisperLah v2 · near-mic mode | 15.1 | 18.9 | · | · | · | · | · | · | · | · | · |
@@ -41,10 +50,19 @@ Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao �
 
 | Model | SASRBench-v1 | NSC P3 conversation |
 |---|---|---|
-| Whisper large-v3-turbo | 5% | 10% |
+| Whisper large-v3-turbo (OpenAI, the base model) | 5% | 10% |
+| Whisper large-v3 (OpenAI) | 18% | 36% |
+| Distil-Whisper large-v3.5 | 3% | 3% |
+| Parakeet TDT 0.6B v3 (NVIDIA) | 8% | 10% |
+| Canary 1B v2 (NVIDIA) | 3% | 2% |
 | Public Singlish fine-tune (mjwong) | 9% | 6% |
 | MERaLiON-2-3B (A*STAR) | 6% | 3% |
-| GPT-4o Transcribe, diarize (OpenAI API) | 14% | 15% |
+| MERaLiON-2-10B-ASR (A*STAR, 4-bit) | 6% | · |
+| GPT Transcribe (OpenAI API) | 48% | 50% |
+| GPT-4o Transcribe (OpenAI API) | 24% | 9% |
+| GPT-4o mini Transcribe (OpenAI API) | 34% | 32% |
+| GPT-4o Transcribe, diarize (OpenAI API) | 14% | 16% |
+| Whisper-1 (OpenAI API) | 19% | 28% |
 | WhisperLah v1 | 69% | 74% |
 | WhisperLah v2 · room mode | 69% | 74% |
 | WhisperLah v2 · near-mic mode | 70% | 72% |

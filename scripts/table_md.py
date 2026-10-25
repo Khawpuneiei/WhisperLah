@@ -6,10 +6,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1].as_posix()
 
 MODELS = [
-    ("whisper-large-v3-turbo", "Whisper large-v3-turbo"),
+    # open-weight models, run locally
+    ("whisper-large-v3-turbo", "Whisper large-v3-turbo (OpenAI, the base model)"),
+    ("whisper-large-v3", "Whisper large-v3 (OpenAI)"),
+    ("distil-large-v3.5", "Distil-Whisper large-v3.5"),
+    ("parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B v3 (NVIDIA)"),
+    ("canary-1b-v2", "Canary 1B v2 (NVIDIA)"),
+    ("Voxtral-Mini-3B", "Voxtral Mini 3B (Mistral, 4-bit)"),
+    ("granite-speech-3.3-2b", "Granite Speech 3.3 2B (IBM)"),
     ("mjwong-turbo-singlish", "Public Singlish fine-tune (mjwong)"),
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
+    ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B-ASR (A*STAR, 4-bit)"),
+    # OpenAI API
+    ("gpt-transcribe", "GPT Transcribe (OpenAI API)"),
+    ("gpt-4o-transcribe", "GPT-4o Transcribe (OpenAI API)"),
+    ("gpt-4o-mini-transcribe-nochunk", "GPT-4o mini Transcribe (OpenAI API)"),
     ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe, diarize (OpenAI API)"),
+    ("whisper-1", "Whisper-1 (OpenAI API)"),
+    # ours
     ("whisperlah-v1", "WhisperLah v1"),
     ("whisperlah-v2", "WhisperLah v2 · room mode"),
     ("whisperlah-v2-near", "WhisperLah v2 · near-mic mode"),

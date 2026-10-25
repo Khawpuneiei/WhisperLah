@@ -14,23 +14,21 @@ INK, INK2, MUTED, GRID, SURFACE = "#1F1E1C", "#5F5B54", "#8A857C", "#ECE8E1", "#
 BASE, OURS = "#CFC9BE", "#E2803B"
 
 # (result name, label); WhisperLah rows are drawn in the accent colour
+ROWS = [
+    ("whisper-large-v3-turbo", "Whisper large-v3-turbo (base)"),
+    ("whisper-large-v3", "Whisper large-v3"),
+    ("parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B v3 (NVIDIA)"),
+    ("mjwong-turbo-singlish", "Public Singlish fine-tune"),
+    ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
+    ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B-ASR (A*STAR)"),
+    ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe, diarize (OpenAI)"),
+    ("gpt-transcribe", "GPT Transcribe (OpenAI)"),
+    ("whisperlah-v2", "WhisperLah v2 · room mode"),
+    ("whisperlah-v2-near", "WhisperLah v2 · near-mic mode"),
+]
 PANELS = [
-    ("sasrbench", "SASRBench-v1  ·  single speaker, close-talk mic", [
-        ("whisper-large-v3-turbo", "Whisper large-v3-turbo"),
-        ("mjwong-turbo-singlish", "Public Singlish fine-tune"),
-        ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
-        ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe (OpenAI)"),
-        ("whisperlah-v2", "WhisperLah v2 · room mode"),
-        ("whisperlah-v2-near", "WhisperLah v2 · near-mic mode"),
-    ]),
-    ("mnsc_part3", "NSC Part 3  ·  two-person conversation", [
-        ("whisper-large-v3-turbo", "Whisper large-v3-turbo"),
-        ("mjwong-turbo-singlish", "Public Singlish fine-tune"),
-        ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
-        ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe (OpenAI)"),
-        ("whisperlah-v2", "WhisperLah v2 · room mode"),
-        ("whisperlah-v2-near", "WhisperLah v2 · near-mic mode"),
-    ]),
+    ("sasrbench", "SASRBench-v1  ·  single speaker, close-talk mic", ROWS),
+    ("mnsc_part3", "NSC Part 3  ·  two-person conversation", ROWS),
 ]
 
 
@@ -67,8 +65,10 @@ def main(version="whisperlah-v2", out=f"{ROOT}/results/whisperlah_v2_chart.png")
         ax.set_xlim(0, xmax)
         ax.set_ylim(-0.6, len(rows) - 0.4)
         ax.set_yticks(range(len(rows)))
-        ax.set_yticklabels([lab for _, lab in reversed(rows)], fontsize=10.5, color=INK2)
         clips = wer[(s, rows[0][0])]["clips"]
+        # † marks a model scored on a sample of the clips (MERaLiON-2-10B on NSC Part 3)
+        ax.set_yticklabels([lab + ("†" if wer[(s, k)]["clips"] != clips else "") for k, lab in reversed(rows)],
+                           fontsize=10.5, color=INK2)
         ax.set_title(f"{title}\nword error rate, lower is better  ·  {clips} clips", loc="left",
                      fontsize=11.5, color=INK, pad=10, linespacing=1.5)
         ax.tick_params(axis="y", length=0, pad=8)
@@ -77,9 +77,9 @@ def main(version="whisperlah-v2", out=f"{ROOT}/results/whisperlah_v2_chart.png")
         ax.set_axisbelow(True)
         for sp in ax.spines.values():
             sp.set_visible(False)
-    fig.text(0.01, 0.01, "Same text normaliser and decoding settings for every Whisper-based model; MERaLiON-2 "
-             "run with its authors' transcription prompt. Clips whose text overlaps training data excluded for all.",
-             fontsize=8.5, color=MUTED)
+    fig.text(0.01, 0.01, "Same clips and text normaliser for every model; each run with its own recommended settings "
+             "(see Benchmark protocol). Clips whose text overlaps training data excluded for all. "
+             "† scored on a 300-clip sample.", fontsize=8.5, color=MUTED)
     fig.tight_layout(rect=(0, 0.05, 1, 1), w_pad=4)
     fig.savefig(out, facecolor=SURFACE)
     print(out)
