@@ -10,7 +10,9 @@ from table_md import MODELS  # noqa: E402
 tpl = (ROOT / "docs" / "README.template.md").read_text(encoding="utf-8")
 tables = subprocess.run([sys.executable, str(ROOT / "scripts" / "table_md.py")], capture_output=True,
                         text=True, encoding="utf-8", check=True).stdout
-t = {(r["set"], r["model"]): r for r in json.load(open(ROOT / "results" / "table.json")) if r["view"] == "full"}
+rows = json.load(open(ROOT / "results" / "table.json"))
+t = {(r["set"], r["model"]): r for r in rows if r["view"] == "full"}
+tc = {(r["set"], r["model"]): r for r in rows if r["view"] == "common"}  # only where clip sets differ
 
 
 def w(s, m):
@@ -25,31 +27,45 @@ LABEL = {"sasrbench": "SASRBench-v1", "mnsc_part3": "NSC Part 3", "mnsc_part1": 
 VERSION = sys.argv[1] if len(sys.argv) > 1 else "whisperlah-v3"
 
 
-def ours_best(s):
-    vals = [t[(s, m)]["wer"] for m in (VERSION, VERSION + "-near") if (s, m) in t]
+def ours_best(s, view=t):
+    vals = [view[(s, m)]["wer"] for m in (VERSION, VERSION + "-near") if (s, m) in view]
     return min(vals) if vals else None
+
+
+def full(s, m):
+    """Scored on every clip of the set, as WhisperLah is (not a smaller sample)."""
+    return t[(s, m)]["clips"] == t[(s, VERSION)]["clips"]
+
+
+def best_other(s):
+    return min((t[(s, m)]["wer"], m) for m in others if (s, m) in t and full(s, m))
+
+
+def sampled(s):
+    """Models run on a sample of the set that score below the best full-set rival: (wer, model, n, ours on the sample)."""
+    return [(t[(s, m)]["wer"], m, t[(s, m)]["clips"], ours_best(s, tc)) for m in others
+            if (s, m) in t and not full(s, m) and t[(s, m)]["wer"] < best_other(s)[0]]
 
 
 wins, losses = [], []
 for s in LABEL:
     o = ours_best(s)
-    rivals = [(t[(s, m)]["wer"], m) for m in others if (s, m) in t]
-    if o is None or not rivals:
+    if o is None or not any((s, m) in t and full(s, m) for m in others):
         continue
-    (wins if o < min(rivals)[0] else losses).append((s, o, min(rivals)))
+    # a model scored on a sample is compared with WhisperLah on the same clips
+    lost = o >= best_other(s)[0] or any(ours >= w for w, _, _, ours in sampled(s))
+    (losses if lost else wins).append((s, o, best_other(s)))
 # short names for the README prose
 rival_name = {m: lab.split(" (")[0] for m, lab in MODELS}
 rival_name.update({"mjwong-turbo-singlish": "the public Singlish fine-tune", "gpt-transcribe": "OpenAI's GPT Transcribe"})
-def best_other(s):
-    return min((t[(s, m)]["wer"], m) for m in others if (s, m) in t)
-
-
 headline = (
     f"**Lowest word error rate of every model tested on {len(wins)} of {len(wins) + len(losses)} Singlish test sets**, "
     f"against {len(others)} other models and API settings, including both public benchmarks: "
     f"{w('sasrbench', VERSION + '-near')} on SASRBench-v1 (next best {best_other('sasrbench')[0]:.1f}%, "
     f"{rival_name[best_other('sasrbench')[1]]}) and {w('mnsc_part3', VERSION)} on NSC two-person conversation "
-    f"(next best {best_other('mnsc_part3')[0]:.1f}%, {rival_name[best_other('mnsc_part3')[1]]}). "
+    f"(next best {best_other('mnsc_part3')[0]:.1f}%, {rival_name[best_other('mnsc_part3')[1]]}"
+    + "".join(f"; {rival_name[m]} scores {w_:.1f}% on a sample of {n} clips, where v3 scores {ours:.1f}%"
+              for w_, m, n, ours in sampled("mnsc_part3")) + "). "
 )
 if losses:
     parts = [f"{LABEL[s]} ({o:.1f}% vs {r[0]:.1f}% for {rival_name[r[1]]})" for s, o, r in losses]

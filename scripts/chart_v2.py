@@ -18,6 +18,7 @@ ROWS = [
     ("whisper-large-v3-turbo", "Whisper large-v3-turbo (base)"),
     ("whisper-large-v3", "Whisper large-v3"),
     ("parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B v3 (NVIDIA)"),
+    ("SenseVoice-Small", "SenseVoice Small (Alibaba)"),
     ("mjwong-turbo-singlish", "Public Singlish fine-tune"),
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)"),
     ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B-ASR (A*STAR)"),

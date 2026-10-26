@@ -3,6 +3,7 @@
     python scripts/chart_sota.py          # reads results/table.json
 """
 import json
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -19,13 +20,13 @@ OTHERS = [
     ("distil-large-v3.5", "Distil-Whisper large-v3.5", (78.9, 76.4)),
     ("parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B v3 (NVIDIA)", (72.6, 73.3)),
     ("canary-1b-v2", "Canary 1B v2 (NVIDIA)", None),
-    ("Voxtral-Mini-3B", "Voxtral Mini 3B (Mistral)", None),
+    ("Voxtral-Mini-3B", "Voxtral Mini 3B, 4-bit (Mistral)", (74.8, 73.35)),
     ("granite-speech-3.3-2b", "Granite Speech 3.3 2B (IBM)", None),
-    ("SenseVoice-Small", "SenseVoice Small (Alibaba)", None),
-    ("Qwen2.5-Omni-3B", "Qwen2.5-Omni 3B (Alibaba)", None),
+    ("SenseVoice-Small", "SenseVoice Small (Alibaba)", (82.6, 70.1)),
+    ("Qwen2.5-Omni-3B", "Qwen2.5-Omni 3B, 4-bit (Alibaba)", None),
     ("mjwong-turbo-singlish", "Singlish fine-tune (mjwong)", (85.4, 74.8)),
     ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)", (85.4, 71.6)),
-    ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B, 4-bit (A*STAR)†", (85.4, 69.4)),
+    ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B, 4-bit (A*STAR)†", (85.4, 76.4)),
     ("gpt-transcribe", "GPT Transcribe (OpenAI API)", (85.4, 73.7)),
     ("gpt-4o-transcribe", "GPT-4o Transcribe (OpenAI API)", None),
     ("gpt-4o-mini-transcribe-nochunk", "GPT-4o mini Transcribe (API)", (81.6, 68.5)),
@@ -74,7 +75,7 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
             continue
         x, y = xy[m]
         if not (xlo <= x <= xhi and ylo <= y <= yhi) or pos is None:
-            off.append(f"{label.split(' (')[0]} ({x:.0f} / {y:.0f})")
+            off.append(f"{label.split(' (')[0]} ({x:.0f}\u00a0/\u00a0{y:.0f})")  # no line break inside the pair
             continue
         ax.scatter(x, y, s=60, color=OTHER, zorder=3, edgecolor="white", linewidth=0.8)
         ax.annotate(label, (x, y), xytext=pos, fontsize=8.5, color=INK2, va="center",
@@ -84,7 +85,7 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
             near = m.endswith("-near")
             ax.scatter(*xy[m], s=130 if release else 60, marker="D" if near else "o",
                        color=OURS if release else OURS_OLD, zorder=4, edgecolor="white", linewidth=0.8)
-            w = 100 - xy[m][0], 100 - xy[m][1]
+            w = t[("sasrbench", m)], t[("mnsc_part3", m)]  # straight from the table, so it rounds like the README
             ax.annotate(f"{label}  ({w[0]:.1f} / {w[1]:.1f})" if release else label, xy[m], xytext=pos,
                         fontsize=10 if release else 8.5, color=INK if release else INK2,
                         fontweight="bold" if release else "normal", va="center",
@@ -106,9 +107,11 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
     if off:
         foot = "Off the chart, word accuracy SASRBench / NSC Part 3: " + ", ".join(off) + ". " + foot
     if ("mnsc_part3", "MERaLiON-2-10B-ASR") in t:
-        foot += "\n† MERaLiON-2-10B's NSC Part 3 score is on a 300-clip sample: in 4-bit on an 8 GB GPU it runs at about 4x real time."
-    fig.text(0.07, 0.015, foot, fontsize=8, color=MUTED)
-    fig.subplots_adjust(left=0.08, right=0.97, top=0.83, bottom=0.09)
+        foot += ("\n† MERaLiON-2-10B's NSC Part 3 score is on a 300-clip sample (in 4-bit on an 8 GB GPU it runs at up to 4x "
+                 "real time); WhisperLah v3 scores 18.8% on the same clips.")
+    foot = "\n".join(textwrap.fill(line, 165) for line in foot.split("\n"))
+    fig.text(0.07, 0.012, foot, fontsize=8, color=MUTED, va="bottom")
+    fig.subplots_adjust(left=0.08, right=0.97, top=0.83, bottom=0.075 + 0.02 * (foot.count("\n") + 1))
     fig.savefig(out, facecolor=SURFACE)
     print(out)
 
