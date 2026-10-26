@@ -35,12 +35,12 @@ OTHERS = [
 ]
 # (result name, label, label position, is the release)
 OURS_PTS = [
-    ("whisperlah-v1", "WhisperLah v1", (74.6, 80.5), False),
+    ("whisperlah-v1", "WhisperLah v1", (74.4, 80.2), False),
     ("whisperlah-v2.1", "v2.1 room", (78.6, 79.4), False),
     ("whisperlah-v2", "v2 room", (81.2, 78.6), False),
     ("whisperlah-v2.1-near", "v2.1 near-mic", (83.2, 77.9), False),
     ("whisperlah-v2-near", "v2 near-mic", (86.0, 78.9), False),
-    ("whisperlah-v3", "WhisperLah v3\nroom mode", (78.6, 84.0), True),
+    ("whisperlah-v3", "WhisperLah v3\nroom mode", (79.4, 84.0), True),
     ("whisperlah-v3-near", "WhisperLah v3\nnear-mic mode", (85.6, 84.6), True),
 ]
 PATH = ["whisperlah-v1", "whisperlah-v2-near", "whisperlah-v3-near"]  # best mode of each release
@@ -70,12 +70,14 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
         ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>", color=OURS, lw=1.4,
                                                              shrinkA=7, shrinkB=7, alpha=0.7), zorder=2)
     off = []  # outside models whose point falls off the axes
+    off_xy = {}
     for m, label, pos in OTHERS:
         if m not in xy:
             continue
         x, y = xy[m]
         if not (xlo <= x <= xhi and ylo <= y <= yhi) or pos is None:
             off.append(f"{label.split(' (')[0]} ({x:.0f}\u00a0/\u00a0{y:.0f})")  # no line break inside the pair
+            off_xy[label.split(" (")[0].split(",")[0]] = (x, y)
             continue
         ax.scatter(x, y, s=60, color=OTHER, zorder=3, edgecolor="white", linewidth=0.8)
         ax.annotate(label, (x, y), xytext=pos, fontsize=8.5, color=INK2, va="center",
@@ -92,6 +94,32 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
                         ha="left" if pos[0] >= xy[m][0] else "right", arrowprops=LEADER)
     ax.set_xlim(xlo, xhi)
     ax.set_ylim(ylo, yhi)
+    if off_xy:
+        # inset, top left: the whole field zoomed out, so the models off the main axes are on the chart too
+        ins = ax.inset_axes([0.012, 0.735, 0.26, 0.25], zorder=6)
+        ins.set_facecolor("white")
+        ilo = (10 * int((min(x for x, _ in xy.values()) - 2) // 10), 10 * int((min(y for _, y in xy.values()) - 2) // 10))
+        ins.set_xlim(ilo[0], 90)
+        ins.set_ylim(ilo[1], 90)
+        for m, (x, y) in xy.items():
+            ins.scatter(x, y, s=12, color=OURS if m.startswith("whisperlah") else OTHER, zorder=3, linewidth=0)
+        ins.add_patch(plt.Rectangle((xlo, ylo), xhi - xlo, yhi - ylo, fill=False, edgecolor=INK2, linewidth=0.8,
+                                    linestyle=(0, (2, 2)), zorder=2))
+        ins.text(xlo - 1, yhi - 2, "main\nchart", fontsize=6, color=INK2, ha="right", va="top")
+        prev = -1e9
+        for name, (x, y) in sorted(off_xy.items(), key=lambda kv: kv[1][1]):
+            ly = max(y, prev + 6)  # keep labels of near-identical points apart
+            prev = ly
+            ins.annotate(name, (x, y), xytext=(x + 2.5, ly), fontsize=6.5, color=INK2, va="center", ha="left",
+                         arrowprops=dict(arrowstyle="-", color=MUTED, lw=0.5, shrinkA=0, shrinkB=2))
+        ins.set_xticks(range(ilo[0], 91, 20))
+        ins.set_yticks(range(ilo[1], 91, 20))
+        ins.tick_params(colors=MUTED, labelsize=6, length=0, pad=1.5)
+        ins.grid(color=GRID, linewidth=0.6)
+        ins.set_axisbelow(True)
+        for side in ins.spines.values():
+            side.set_color(GRID)
+        ins.set_title("Whole field, zoomed out", fontsize=7, color=INK2, loc="left", pad=2)
     ax.set_xlabel("SASRBench-v1 word accuracy, % (100 − WER): close-talk Singlish", fontsize=10.5, color=INK2)
     ax.set_ylabel("NSC Part 3 word accuracy, % (100 − WER): two-person conversation", fontsize=10.5, color=INK2)
     ax.tick_params(colors=MUTED, labelsize=9, length=0)
@@ -105,7 +133,8 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
              "Orange: WhisperLah (diamonds: near-mic mode); the arrows trace each release's best mode.", fontsize=9.5, color=INK2, va="top")
     foot = "Contaminated clips excluded for every model."
     if off:
-        foot = "Off the chart, word accuracy SASRBench / NSC Part 3: " + ", ".join(off) + ". " + foot
+        foot = ("Inset, top left: the whole field. Off the main axes, word accuracy SASRBench / NSC Part 3: "
+                + ", ".join(off) + ". " + foot)
     if ("mnsc_part3", "MERaLiON-2-10B-ASR") in t:
         foot += ("\n† MERaLiON-2-10B's NSC Part 3 score is on a 300-clip sample (in 4-bit on an 8 GB GPU it runs at up to 4x "
                  "real time); WhisperLah v3 scores 18.8% on the same clips.")
