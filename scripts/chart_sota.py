@@ -3,35 +3,39 @@
     python scripts/chart_sota.py          # reads results/table.json
 """
 import json
+import sys
 import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from logos import logo_label  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 INK, INK2, MUTED, GRID, SURFACE = "#1F1E1C", "#5F5B54", "#8A857C", "#ECE8E1", "#FAFAF8"
 OTHER, OURS, OURS_OLD = "#9AA3B2", "#E2803B", "#F0BE96"
 
-# (result name, label, label position in data coordinates); outside models first
+# (result name, label, label position in data coordinates); outside models first. The maker shows as a logo.
 OTHERS = [
     ("whisper-large-v3-turbo", "Whisper large-v3-turbo (base)", (76.4, 70.2)),
     ("whisper-large-v3", "Whisper large-v3", (77.3, 77.4)),
     ("distil-large-v3.5", "Distil-Whisper large-v3.5", (78.9, 76.4)),
-    ("parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B v3 (NVIDIA)", (72.6, 73.3)),
+    ("parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B v3", (72.6, 73.3)),
     ("canary-1b-v2", "Canary 1B v2 (NVIDIA)", None),
-    ("Voxtral-Mini-3B", "Voxtral Mini 3B, 4-bit (Mistral)", (74.8, 73.35)),
+    ("Voxtral-Mini-3B", "Voxtral Mini 3B, 4-bit", (74.8, 73.35)),
     ("granite-speech-3.3-2b", "Granite Speech 3.3 2B (IBM)", None),
-    ("SenseVoice-Small", "SenseVoice Small (Alibaba)", (82.6, 70.1)),
+    ("SenseVoice-Small", "SenseVoice Small", (82.6, 70.1)),
     ("Qwen2.5-Omni-3B", "Qwen2.5-Omni 3B, 4-bit (Alibaba)", None),
-    ("mjwong-turbo-singlish", "Singlish fine-tune (mjwong)", (85.4, 74.8)),
-    ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)", (85.4, 71.6)),
-    ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B, 4-bit (A*STAR)†", (85.4, 76.4)),
-    ("gpt-transcribe", "GPT Transcribe (OpenAI API)", (85.4, 73.7)),
+    ("mjwong-turbo-singlish", "Singlish fine-tune (mjwong)", (85.4, 75.15)),
+    ("MERaLiON-2-3B", "MERaLiON-2-3B", (85.4, 71.6)),
+    ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B, 4-bit†", (85.4, 76.4)),
+    ("gpt-transcribe", "GPT Transcribe (API)", (85.4, 73.55)),
     ("gpt-4o-transcribe", "GPT-4o Transcribe (OpenAI API)", None),
     ("gpt-4o-mini-transcribe-nochunk", "GPT-4o mini Transcribe (API)", (81.6, 68.5)),
     ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe, diarize (API)", (70.0, 69.3)),
-    ("whisper-1", "Whisper-1 (OpenAI API)", (75.4, 76.4)),
+    ("whisper-1", "Whisper-1 (API)", (75.4, 76.4)),
 ]
 # (result name, label, label position, is the release)
 OURS_PTS = [
@@ -57,7 +61,7 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
     fig, ax = plt.subplots(figsize=(10, 7.4), dpi=200)
     fig.patch.set_facecolor(SURFACE)
     ax.set_facecolor(SURFACE)
-    xlo, xhi, ylo, yhi = 67, 90, 67, 86
+    xlo, xhi, ylo, yhi = 67, 91, 67, 86
     # dashed lines of equal average accuracy across the two benchmarks
     g = np.linspace(xlo, xhi, 50)
     for avg in (70, 75, 80, 85):
@@ -80,18 +84,22 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
             off_xy[label.split(" (")[0].split(",")[0]] = (x, y)
             continue
         ax.scatter(x, y, s=60, color=OTHER, zorder=3, edgecolor="white", linewidth=0.8)
-        ax.annotate(label, (x, y), xytext=pos, fontsize=8.5, color=INK2, va="center",
-                    ha="left" if pos[0] >= x else "right", arrowprops=LEADER)
+        ax.annotate("", (x, y), xytext=pos, arrowprops=LEADER)
+        logo_label(ax, m, label, pos, height=20, fontsize=8.5, color=INK2, xycoords="data",
+                   box_alignment=(0 if pos[0] >= x else 1, 0.5))
     for m, label, pos, release in OURS_PTS:
         if m in xy:
             near = m.endswith("-near")
             ax.scatter(*xy[m], s=130 if release else 60, marker="D" if near else "o",
                        color=OURS if release else OURS_OLD, zorder=4, edgecolor="white", linewidth=0.8)
             w = t[("sasrbench", m)], t[("mnsc_part3", m)]  # straight from the table, so it rounds like the README
-            ax.annotate(f"{label}  ({w[0]:.1f} / {w[1]:.1f})" if release else label, xy[m], xytext=pos,
-                        fontsize=10 if release else 8.5, color=INK if release else INK2,
-                        fontweight="bold" if release else "normal", va="center",
-                        ha="left" if pos[0] >= xy[m][0] else "right", arrowprops=LEADER)
+            if not release:
+                ax.annotate(label, xy[m], xytext=pos, fontsize=8.5, color=INK2, va="center",
+                            ha="left" if pos[0] >= xy[m][0] else "right", arrowprops=LEADER)
+                continue
+            ax.annotate("", xy[m], xytext=pos, arrowprops=LEADER)
+            logo_label(ax, m, f"{label}  ({w[0]:.1f} / {w[1]:.1f})", pos, height=20, fontsize=10, color=INK,
+                       weight="bold", xycoords="data", box_alignment=(0 if pos[0] >= xy[m][0] else 1, 0.5))
     ax.set_xlim(xlo, xhi)
     ax.set_ylim(ylo, yhi)
     if off_xy:
