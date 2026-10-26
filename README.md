@@ -79,6 +79,13 @@ Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao �
 | **WhisperLah v3** · room mode | 72% | 76% |
 | **WhisperLah v3** · near-mic mode | 70% | 75% |
 
+A dot (·) means not run. The English sets (AMI, LibriSpeech) are regression
+checks, run only for base Whisper and WhisperLah. Near-mic mode and
+WhisperLah v1 are scored on the two public benchmarks only. Whisper-1 and
+MERaLiON-2-10B-ASR were also run on those two only, to save API cost and
+because the 10B runs at up to 4x real time on the 8 GB GPU. Canary 1B v2's
+Parts 4 to 6 were stopped (see Other notes).
+
 **OpenAI API settings.** Each OpenAI model is shown at the setting that
 scored better for it. GPT Transcribe and GPT-4o Transcribe use
 `chunking_strategy="auto"`: without it GPT-4o Transcribe stops early and drops
