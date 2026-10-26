@@ -77,9 +77,9 @@ def main():
         sr, wav = wavfile.read(d / "wav" / f"{name}.wav")  # .venv-diar has no soundfile
         wav = wav.astype(np.float32) / 32768  # make_synth writes 16-bit PCM
         audio_s += len(wav) / sr
-        k = len(refs[name].labels()) if args.oracle_speakers else None
+        n_spk = len(refs[name].labels()) if args.oracle_speakers else None
         try:
-            out = pipe({"waveform": torch.from_numpy(wav)[None], "sample_rate": sr}, num_speakers=k)
+            out = pipe({"waveform": torch.from_numpy(wav)[None], "sample_rate": sr}, num_speakers=n_spk)
         except ValueError:  # fewer embeddings than reference speakers: KMeans cannot force k
             out = pipe({"waveform": torch.from_numpy(wav)[None], "sample_rate": sr})
         hyp = getattr(out, "speaker_diarization", out)  # pyannote 4 returns an output object
