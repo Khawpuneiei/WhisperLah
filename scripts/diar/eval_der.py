@@ -2,6 +2,7 @@
 
     .venv-diar/Scripts/python.exe scripts/diar/eval_der.py --split test --name community1 [--device cuda]
     .venv-diar/Scripts/python.exe scripts/diar/eval_der.py --split test --name ft --segmentation runs/diar/seg-ft/epoch=09.ckpt
+    .venv-diar/Scripts/python.exe scripts/diar/eval_der.py --split test --name ft-tuned --params data/diar/pipeline_best.json
 
 Reads HF_TOKEN from .env.hf.txt (or .env.hf.txt.txt). Audio is passed in memory
 because torchcodec cannot decode files on this Windows setup. Scores with
@@ -52,6 +53,8 @@ def main():
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--segmentation", help="fine-tuned segmentation checkpoint to swap into community-1")
+    ap.add_argument("--params", help="pipeline_best.json from tune_clustering.py (also sets --segmentation)")
+    ap.add_argument("--oracle-speakers", action="store_true", help="pass the reference speaker count")
     args = ap.parse_args()
 
     d = ROOT / "data" / "diar" / args.split
@@ -59,6 +62,10 @@ def main():
     names = (d / f"{args.split}.lst").read_text().split()[: args.limit]
 
     pipe = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1", token=hf_token())
+    if args.params:
+        tuned = json.loads((ROOT / args.params).read_text())
+        args.segmentation = args.segmentation or str(ROOT / tuned["segmentation"])
+        pipe.instantiate(tuned["params"])
     if args.segmentation:
         from pyannote.audio import Model
         pipe._segmentation.model = Model.from_pretrained(args.segmentation)
@@ -70,7 +77,11 @@ def main():
         sr, wav = wavfile.read(d / "wav" / f"{name}.wav")  # .venv-diar has no soundfile
         wav = wav.astype(np.float32) / 32768  # make_synth writes 16-bit PCM
         audio_s += len(wav) / sr
-        out = pipe({"waveform": torch.from_numpy(wav)[None], "sample_rate": sr})
+        k = len(refs[name].labels()) if args.oracle_speakers else None
+        try:
+            out = pipe({"waveform": torch.from_numpy(wav)[None], "sample_rate": sr}, num_speakers=k)
+        except ValueError:  # fewer embeddings than reference speakers: KMeans cannot force k
+            out = pipe({"waveform": torch.from_numpy(wav)[None], "sample_rate": sr})
         hyp = getattr(out, "speaker_diarization", out)  # pyannote 4 returns an output object
         hyp.uri = name
         der0(refs[name], hyp)
@@ -87,7 +98,8 @@ def main():
            "missed": round(100 * comp.get("missed detection", 0) / total, 2),
            "false_alarm": round(100 * comp.get("false alarm", 0) / total, 2),
            "confusion": round(100 * comp.get("confusion", 0) / total, 2),
-           "rtf": round((time.time() - t0) / audio_s, 4), "device": args.device}
+           "rtf": round((time.time() - t0) / audio_s, 4), "device": args.device,
+           "params": pipe.parameters(instantiated=True), "oracle_speakers": args.oracle_speakers}
     out = ROOT / "results" / f"diar_{args.split}__{args.name}"
     out.with_suffix(".json").write_text(json.dumps(res, indent=1))
     out.with_suffix(".rttm").write_text("\n".join(hyp_lines) + "\n")
