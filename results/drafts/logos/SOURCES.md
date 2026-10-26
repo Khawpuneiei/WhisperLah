@@ -9,3 +9,5 @@ Brand marks of the organisations behind each model, used only to label them in t
 - `qwen.png`: Qwen (Alibaba) Hugging Face organisation avatar (huggingface.co/Qwen), used for SenseVoice and Qwen2.5-Omni
 - `hf.png`: Hugging Face's organisation avatar (huggingface.co/huggingface), used for Distil-Whisper
 - `astar.png`: the "a*" mark cropped from A*STAR's website share image (a-star.edu.sg, og:image), used for MERaLiON
+- `lepaq.png`: the Lepaq mark (cup with sound-wave steam), rendered from `app/icon.svg` in the Lepaq app repo; used for WhisperLah
+- `user.png`: a generic user silhouette drawn for this chart; used for the individual fine-tune by Hugging Face user mjwong (Ming Jie Wong), instead of his personal profile photo

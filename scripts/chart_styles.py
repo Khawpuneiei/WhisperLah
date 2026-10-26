@@ -24,7 +24,7 @@ SETS = [("sasrbench", "SASRBench-v1", "close-talk"), ("mnsc_part3", "NSC Part 3"
         ("mnsc_part6", "NSC Part 6", "conversation"), ("mnsc_part1", "NSC Part 1", "read speech"),
         ("mnsc_part2", "NSC Part 2", "read speech")]
 LOGO = {"openai": "openai", "astar": "astar", "alibaba": "qwen", "nvidia": "nvidia", "mistral": "mistral",
-        "ibm": "ibm", "hf": "hf"}
+        "ibm": "ibm", "hf": "hf", "ours": "lepaq", "indie": "user"}
 COLOR = {"ours": OURS, "openai": "#1F1E1C", "astar": "#1D3C8F", "alibaba": "#615CED", "nvidia": "#76B900",
          "mistral": "#F5A623", "ibm": "#0F62FE", "hf": "#9AA3B2", "indie": "#9AA3B2"}
 
@@ -90,13 +90,10 @@ def chart_a():
     ax.set_xticks(range(len(models)))
     ax.set_xticklabels([""] * len(models))
     for gi, (m, label, org) in enumerate(models):
-        if org == "ours":
-            ax.text(gi, -0.075, label, transform=ax.get_xaxis_transform(), ha="center", va="center",
-                    fontsize=12, fontweight="bold", color=OURS)
-        else:
-            put_logo(ax, org, (gi, -0.06), 0.24)
-            ax.text(gi, -0.115, label, transform=ax.get_xaxis_transform(), ha="center", va="center",
-                    fontsize=10, color=INK)
+        put_logo(ax, org, (gi, -0.06), 0.24)
+        ours = org == "ours"
+        ax.text(gi, -0.115, label, transform=ax.get_xaxis_transform(), ha="center", va="center",
+                fontsize=11.5 if ours else 10, fontweight="bold" if ours else "normal", color=OURS if ours else INK)
     handles = [plt.Rectangle((0, 0), 1, 1, facecolor=shades[i], hatch=hatch[i],
                              edgecolor="#6B6660" if hatch[i] else "none") for i in range(n)]
     leg = ax.legend(handles, [f"{lab} · {kind}" for _, lab, kind in SETS], title="Test sets", loc="upper left",
@@ -138,11 +135,7 @@ def chart_b():
         c = COLOR[org] if not (org == "ours" and m != "whisperlah-v3") else "#F0BE96"
         ax.bar(x, v, 0.78, color=c, zorder=2)
         ax.text(x, v - 3, f"{v:.1f}", ha="center", va="top", fontsize=11, color="white", fontweight="bold", zorder=3)
-        if org == "ours":
-            ax.text(x, -0.075, "WL", transform=ax.get_xaxis_transform(), ha="center", va="center", fontsize=11,
-                    fontweight="bold", color=OURS)
-        else:
-            put_logo(ax, org, (x, -0.075), 0.24)
+        put_logo(ax, org, (x, -0.075), 0.24)
         ax.text(x, -0.15, label, transform=ax.get_xaxis_transform(), ha="right", va="top", rotation=55,
                 rotation_mode="anchor", fontsize=10, color=OURS if org == "ours" else INK,
                 fontweight="bold" if m == "whisperlah-v3" else "normal")
@@ -179,11 +172,11 @@ def chart_c():
            "granite-speech-3.3-2b": "ibm", "SenseVoice-Small": "alibaba", "Qwen2.5-Omni-3B": "alibaba",
            "MERaLiON-2-3B": "astar", "MERaLiON-2-10B-ASR": "astar", "gpt-transcribe": "openai",
            "gpt-4o-transcribe": "openai", "gpt-4o-mini-transcribe-nochunk": "openai",
-           "gpt-4o-transcribe-diarize": "openai", "whisper-1": "openai"}
+           "gpt-4o-transcribe-diarize": "openai", "whisper-1": "openai", "mjwong-turbo-singlish": "indie"}
     dot = 'ax.scatter(x, y, s=60, color=OTHER, zorder=3, edgecolor="white", linewidth=0.8)'
     assert dot in src
     src = src.replace(dot, 'ax.scatter(x, y, s=60, color=OTHER, zorder=3, edgecolor="white", linewidth=0.8) '
-                           'if m not in ORG else put_logo(ax, ORG[m], (x, y), 0.19, "data")')
+                           'if m not in ORG else put_logo(ax, ORG[m], (x, y), 0.38, "data")')
     ns = {"__name__": "chart_sota_logos", "__file__": str(REPO / "scripts" / "chart_sota.py"),
           "ORG": org, "put_logo": put_logo}
     exec(compile(src, "chart_sota.py", "exec"), ns)
