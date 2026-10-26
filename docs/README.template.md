@@ -42,9 +42,12 @@ as insertions. OpenAI API cost for all of this: about US$48.
 loops on long conversation clips (Canary writes up to 1,000 words for one
 clip). That is most of their NSC Part 3 error (58.5% and 74.5%) and Granite's
 129.8% on Part 4; Canary's Parts 4 to 6 were stopped for that reason.
-Qwen2.5-Omni 3B is a chat model: on some clips it answers the speaker instead
-of transcribing them ("I have never received or shared a lobang so I can't
-really answer that question"), and those answers are scored as they are.
+Qwen2.5-Omni 3B is a chat model and often answers the speaker instead of
+transcribing them ("I have never received or shared a lobang so I can't
+really answer that question", on NSC Part 3). It does this on about one in
+seven of NSC Part 2's short read questions (95.8%), and it loops on the
+Mandarin code-switched clips of Part 4 (132.4%). Its outputs are scored as
+they are, like every other model's.
 SenseVoice Small's 10.4% on NSC Part 2 is far below every other model except
 MERaLiON-2-3B, which suggests it, too, was trained on NSC read speech (see
 Benchmark protocol). † MERaLiON-2-10B-ASR is scored on a fixed 300-clip
@@ -292,6 +295,11 @@ uv pip install --python .venv/Scripts/python.exe transformers==4.46.3 peft==0.13
 uv venv --python 3.12 .venv-meralion
 uv pip install --python .venv-meralion/Scripts/python.exe torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 uv pip install --python .venv-meralion/Scripts/python.exe transformers==4.50.1 accelerate librosa soundfile pyarrow tqdm hf_xet
+# the other open models (Parakeet, Canary, Voxtral, Granite, SenseVoice, Qwen2.5-Omni) share a third one.
+# Keep onnxruntime-gpu at 1.22.0: newer builds need CUDA 13 and silently fall back to the CPU without it.
+uv venv --python 3.12 .venv-bench
+uv pip install --python .venv-bench/Scripts/python.exe torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu126
+uv pip install --python .venv-bench/Scripts/python.exe transformers==4.57.6 accelerate==1.15.0 bitsandbytes==0.50.2 onnx-asr==0.12.0 onnxruntime-gpu==1.22.0 funasr==1.4.16 mistral-common==1.12.0 librosa==1.0.0 soundfile==0.14.0 pyarrow tqdm
 
 python scripts/download.py && python scripts/download_v2.py
 cd scripts
@@ -300,6 +308,8 @@ python train_lora.py --steps 500 --save_every 125 --name lora-r32
 python prep_v2.py && python prep_near.py && python prep_v2.py --check
 python train_lora.py --steps 1400 --data v1,v2 --init ../runs/lora-r32/final --lr 2e-4 --specaug --save_every 200 --name v2
 bash run_v2_evals_b.sh                                   # every model, every test set
+# the newer open models, one set at a time (clip limits in Benchmark protocol), e.g.
+../.venv-bench/Scripts/python.exe eval_sensevoice.py --set sasrbench --limit 1200   # also eval_onnxasr, eval_voxtral, eval_granite, eval_qwen_omni
 python report.py && python table_md.py && python chart_v2.py whisperlah-v3 ../results/whisperlah_v3_chart.png && python chart_sota.py
 ```
 
