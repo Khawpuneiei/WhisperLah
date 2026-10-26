@@ -5,6 +5,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1].as_posix()
 
+NOT_RUN = "TBD"  # a cell not run yet: to be tested in a later round
+
 MODELS = [
     # open-weight models, run locally
     ("whisper-large-v3-turbo", "Whisper large-v3-turbo (OpenAI, the base model)"),
@@ -66,7 +68,7 @@ def main():
         for s, _ in sets:
             r = full.get((s, m))
             if r is None:
-                cells.append("·")
+                cells.append(NOT_RUN)
             else:
                 v = f"{r['wer']:.1f}" + ("†" if r["clips"] != clips[s] else "")
                 cells.append(f"**{v}**" if r["wer"] == best[s] else v)
@@ -77,8 +79,8 @@ def main():
     print("|---|---|---|")
     for m, lab in MODELS:
         cells = [f"{full[(s, m)]['particle_recall']:.0f}%" if (s, m) in full and full[(s, m)]["particle_recall"] is not None
-                 else "·" for s, _ in sets[:2]]
-        if any(c != "·" for c in cells):
+                 else NOT_RUN for s, _ in sets[:2]]
+        if any(c != NOT_RUN for c in cells):
             print(f"| {lab} | " + " | ".join(cells) + " |")
 
 
