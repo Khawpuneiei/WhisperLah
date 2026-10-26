@@ -16,13 +16,14 @@ MAKER = {
     "parakeet-tdt-0.6b-v3": "nvidia", "canary-1b-v2": "nvidia", "Voxtral-Mini-3B": "mistral",
     "granite-speech-3.3-2b": "ibm", "SenseVoice-Small": "alibaba", "Qwen2.5-Omni-3B": "qwen",
     "MERaLiON-2-3B": "astar", "MERaLiON-2-10B-ASR": "astar",
+    "mjwong-turbo-singlish": "user",  # a personal Hugging Face account, not a company
 }
 _cache = {}
 
 
 def logo(model, height):
     """OffsetImage of the model's maker logo, `height` points tall; None for a model with no company behind it."""
-    maker = "whisperlah" if model.startswith("whisperlah") else MAKER.get(model)
+    maker = "lepaq" if model.startswith("whisperlah") else MAKER.get(model)  # WhisperLah is built for Lepaq
     if maker is None:
         return None
     if maker not in _cache:

@@ -11,7 +11,7 @@ Trained on one 8 GB laptop GPU (RTX 4060) in about 31 hours of GPU time (v1 1.6 
 
 **Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, against 17 other models and API settings, including both public benchmarks: 14.8% on SASRBench-v1 (next best 15.8%, OpenAI's GPT Transcribe) and 18.0% on NSC two-person conversation (next best 25.2%, Distil-Whisper large-v3.5; MERaLiON-2-10B-ASR scores 22.4% on a sample of 299 clips, where v3 scores 18.8%). Behind on NSC Part 1 (6.0% vs 4.8% for MERaLiON-2-3B) and NSC Part 2 (21.7% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that other models drop: 76% of them on NSC Part 3, against 50% for the next best (OpenAI's GPT Transcribe) and 10% or less for 8 of the 17 others.
 
-![WhisperLah v3 against other Singlish models](results/whisperlah_v3_chart.png)
+![Singlish accuracy index: WhisperLah v3 ranks first of 16 models on average word accuracy across all 7 test sets](results/whisperlah_ranked_chart.png)
 
 Every model we have scored on both public Singlish benchmarks, with each
 WhisperLah release (`scripts/chart_sota.py`):
@@ -19,6 +19,11 @@ WhisperLah release (`scripts/chart_sota.py`):
 ![WhisperLah against other Singlish models on SASRBench and NSC Part 3](results/whisperlah_sota_chart.png)
 
 ## Results
+
+Set by set, WhisperLah v3 against its five closest rivals and its base model
+(`scripts/chart_grouped.py`):
+
+![WhisperLah v3 and its closest rivals on each Singlish test set](results/whisperlah_grouped_chart.png)
 
 Word error rate, %, lower is better. Every model is scored on the same clips
 with the same text normaliser. Bold is the best score on each test set.
@@ -372,7 +377,7 @@ python train_lora.py --steps 1400 --data v1,v2 --init ../runs/lora-r32/final --l
 bash run_v2_evals_b.sh                                   # every model, every test set
 # the newer open models, one set at a time (clip limits in Benchmark protocol), e.g.
 ../.venv-bench/Scripts/python.exe eval_sensevoice.py --set sasrbench --limit 1200   # also eval_onnxasr, eval_voxtral, eval_granite, eval_qwen_omni
-python report.py && python table_md.py && python chart_v2.py whisperlah-v3 ../results/whisperlah_v3_chart.png && python chart_sota.py
+python report.py && python table_md.py && python chart_ranked.py && python chart_grouped.py && python chart_sota.py
 ```
 
 ## Limits
@@ -414,4 +419,6 @@ MERaLiON-2-10B-ASR are used for evaluation only, under the MERaLiON Public
 Licence; every other outside model is used for evaluation only, under its own
 licence. The per-clip result
 files include reference transcripts so every number can be re-scored; no
-audio is redistributed here.
+audio is redistributed here. Company logos in the charts are trademarks of
+their owners, used only to show who made each model; their sources are in
+`docs/logos/SOURCES.md`.
