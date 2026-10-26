@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1].as_posix()
+TBD = "TBD"  # a model and test set not scored yet
 
 MODELS = [
     # open-weight models, run locally
@@ -66,19 +67,20 @@ def main():
         for s, _ in sets:
             r = full.get((s, m))
             if r is None:
-                cells.append("·")
+                cells.append(TBD)
             else:
                 v = f"{r['wer']:.1f}" + ("†" if r["clips"] != clips[s] else "")
                 cells.append(f"**{v}**" if r["wer"] == best[s] else v)
         print(f"| {lab} | " + " | ".join(cells) + " |")
 
+    print(f"\n{TBD}: to be tested; that model has not been run on that test set yet.")
     print("\nSingapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao …), share of those in the reference:\n")
     print("| Model | " + " | ".join(lab for s, lab in sets[:2]) + " |")
     print("|---|---|---|")
     for m, lab in MODELS:
         cells = [f"{full[(s, m)]['particle_recall']:.0f}%" if (s, m) in full and full[(s, m)]["particle_recall"] is not None
-                 else "·" for s, _ in sets[:2]]
-        if any(c != "·" for c in cells):
+                 else TBD for s, _ in sets[:2]]
+        if any(c != TBD for c in cells):
             print(f"| {lab} | " + " | ".join(cells) + " |")
 
 
