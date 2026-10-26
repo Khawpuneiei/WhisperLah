@@ -9,7 +9,7 @@ published here.**
 
 Trained on one 8 GB laptop GPU (RTX 4060) in about 31 hours of GPU time (v1 1.6 h, v2 4.5 h, v3 about 25 h).
 
-**Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, including both public benchmarks: 14.8% on SASRBench-v1 (MERaLiON-2-3B 16.2%, public Singlish fine-tune 17.0%, Whisper large-v3-turbo 24.0%) and 18.0% on NSC two-person conversation (next best 26.2%). Behind on NSC Part 1 (6.0% vs 4.8% for MERaLiON-2-3B) and NSC Part 2 (21.7% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that the other models drop: about 70% of them, against 10% or less.
+**Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, against 17 other models and API settings, including both public benchmarks: 14.8% on SASRBench-v1 (next best 15.8%, OpenAI's GPT Transcribe) and 18.0% on NSC two-person conversation (next best 25.2%, Distil-Whisper large-v3.5; MERaLiON-2-10B-ASR scores 22.4% on a sample of 299 clips, where v3 scores 18.8%). Behind on NSC Part 1 (6.0% vs 4.8% for MERaLiON-2-3B) and NSC Part 2 (21.7% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that other models drop: 76% of them on NSC Part 3, against 50% for the next best (OpenAI's GPT Transcribe) and 10% or less for 8 of the 17 others.
 
 ![WhisperLah v3 against other Singlish models](results/whisperlah_v3_chart.png)
 
@@ -25,10 +25,23 @@ with the same text normaliser. Bold is the best score on each test set.
 
 | Model | SASRBench-v1<br>1055 clips | NSC P3 conversation<br>997 clips | NSC P1 read<br>484 clips | NSC P2 read, local names<br>490 clips | NSC P4 conversation<br>300 clips | NSC P5 conversation<br>300 clips | NSC P6 conversation<br>300 clips | AMI meetings, headset mic (English)<br>11653 clips | AMI meetings, table mic (English)<br>11653 clips | LibriSpeech clean (English)<br>2620 clips | LibriSpeech other (English)<br>2939 clips |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Whisper large-v3-turbo | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 | 14.9 | 34.1 | **1.9** | **3.9** |
+| Whisper large-v3-turbo (OpenAI, the base model) | 24.0 | 27.7 | 7.5 | 33.6 | 43.0 | 21.5 | 17.6 | 14.9 | 34.1 | **1.9** | **3.9** |
+| Whisper large-v3 (OpenAI) | 22.3 | 25.7 | 6.7 | 31.0 | 42.6 | 20.6 | 16.6 | · | · | · | · |
+| Distil-Whisper large-v3.5 | 21.8 | 25.2 | 7.5 | 34.6 | 43.7 | 17.5 | 15.4 | · | · | · | · |
+| Parakeet TDT 0.6B v3 (NVIDIA) | 26.1 | 25.2 | 5.3 | 34.9 | 42.7 | 16.3 | 13.5 | · | · | · | · |
+| Canary 1B v2 (NVIDIA) | 27.5 | 58.5 | 5.2 | 36.9 | · | · | · | · | · | · | · |
+| Voxtral Mini 3B (Mistral, 4-bit) | 25.6 | 27.7 | 6.8 | 35.0 | 55.3 | 18.3 | 16.0 | · | · | · | · |
+| Granite Speech 3.3 2B (IBM) | 52.0 | 74.5 | 9.3 | 40.1 | 129.8 | 26.4 | 18.5 | · | · | · | · |
+| SenseVoice Small (Alibaba) | 18.1 | 27.2 | 5.5 | 10.4 | 47.2 | 18.1 | 15.6 | · | · | · | · |
+| Qwen2.5-Omni 3B (Alibaba, 4-bit) | 51.3 | 75.9 | 16.3 | 95.8 | 132.4 | 40.0 | 39.4 | · | · | · | · |
 | Public Singlish fine-tune (mjwong) | 17.0 | 26.2 | 8.9 | 31.0 | 41.2 | 18.8 | 15.2 | · | · | · | · |
 | MERaLiON-2-3B (A*STAR) | 16.2 | 26.9 | **4.8** | **6.6** | 40.8 | 19.3 | 14.9 | · | · | · | · |
-| GPT-4o Transcribe, diarize (OpenAI API) | 30.8 | 30.5† | · | · | · | · | · | · | · | · | · |
+| MERaLiON-2-10B-ASR (A*STAR, 4-bit) | 16.7 | 22.4† | · | · | · | · | · | · | · | · | · |
+| GPT Transcribe (OpenAI API) | 15.8 | 26.9 | 5.3 | 29.2 | 34.3 | 16.9 | 14.8 | · | · | · | · |
+| GPT-4o Transcribe (OpenAI API) | 40.6 | 63.5 | 7.5 | 35.3 | 69.1 | 49.5 | 40.2 | · | · | · | · |
+| GPT-4o mini Transcribe (OpenAI API) | 18.7 | 28.2 | 7.1 | 39.2 | 43.6 | 22.1 | 17.6 | · | · | · | · |
+| GPT-4o Transcribe, diarize (OpenAI API) | 30.8 | 28.5 | 8.3 | 33.6 | 50.3 | 19.0 | 16.0 | · | · | · | · |
+| Whisper-1 (OpenAI API) | 24.0 | 25.9 | · | · | · | · | · | · | · | · | · |
 | WhisperLah v1 | 22.2 | 19.5 | · | · | · | · | · | · | · | · | · |
 | WhisperLah v2 · room mode | 16.8 | 19.0 | 6.2 | 23.6 | 29.5 | 14.3 | 11.1 | 11.3 | 33.0 | 2.2 | 4.7 |
 | WhisperLah v2 · near-mic mode | 15.1 | 18.9 | · | · | · | · | · | · | · | · | · |
@@ -41,10 +54,23 @@ Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao �
 
 | Model | SASRBench-v1 | NSC P3 conversation |
 |---|---|---|
-| Whisper large-v3-turbo | 5% | 10% |
+| Whisper large-v3-turbo (OpenAI, the base model) | 5% | 10% |
+| Whisper large-v3 (OpenAI) | 18% | 36% |
+| Distil-Whisper large-v3.5 | 3% | 3% |
+| Parakeet TDT 0.6B v3 (NVIDIA) | 8% | 10% |
+| Canary 1B v2 (NVIDIA) | 3% | 2% |
+| Voxtral Mini 3B (Mistral, 4-bit) | 10% | 18% |
+| Granite Speech 3.3 2B (IBM) | 2% | 2% |
+| SenseVoice Small (Alibaba) | 30% | 14% |
+| Qwen2.5-Omni 3B (Alibaba, 4-bit) | 20% | 11% |
 | Public Singlish fine-tune (mjwong) | 9% | 6% |
 | MERaLiON-2-3B (A*STAR) | 6% | 3% |
-| GPT-4o Transcribe, diarize (OpenAI API) | 14% | 15% |
+| MERaLiON-2-10B-ASR (A*STAR, 4-bit) | 6% | 2% |
+| GPT Transcribe (OpenAI API) | 48% | 50% |
+| GPT-4o Transcribe (OpenAI API) | 24% | 9% |
+| GPT-4o mini Transcribe (OpenAI API) | 34% | 32% |
+| GPT-4o Transcribe, diarize (OpenAI API) | 14% | 16% |
+| Whisper-1 (OpenAI API) | 19% | 28% |
 | WhisperLah v1 | 69% | 74% |
 | WhisperLah v2 · room mode | 69% | 74% |
 | WhisperLah v2 · near-mic mode | 70% | 72% |
@@ -53,11 +79,35 @@ Singapore discourse particles caught (lah, leh, lor, meh, sia, hor, mah, liao �
 | **WhisperLah v3** · room mode | 72% | 76% |
 | **WhisperLah v3** · near-mic mode | 70% | 75% |
 
-† GPT-4o Transcribe was run on 300 of the NSC Part 3 clips to keep API cost
-down (US$2.60 for both sets); on exactly those 299 scored clips WhisperLah v2
-(the release at the time) is 20.0%, Whisper large-v3-turbo 28.8% and GPT-4o 30.5%. GPT-4o, like
-WhisperLah v1, writes down the background speaker on SASRBench, which that
-benchmark counts as insertions.
+**OpenAI API settings.** Each OpenAI model is shown at the setting that
+scored better for it. GPT Transcribe and GPT-4o Transcribe use
+`chunking_strategy="auto"`: without it GPT-4o Transcribe stops early and drops
+most of each clip (58.4% on SASRBench), and even with it, deletions make up
+most of its errors. GPT-4o mini Transcribe is shown without chunking, which is
+better for it on every set (with chunking: 26.8% on SASRBench). Whisper-1 gets
+`language="en"`, as every local Whisper run does; left to auto-detect, it
+translated the Singlish into Malay (97% on SASRBench). Whisper-1 was scored on
+the two public benchmarks only. The other runs are kept in `results/` as
+`-nochunk` and `-autolang`. GPT-4o Transcribe diarize, like WhisperLah v1,
+writes down the background speaker on SASRBench, which that benchmark counts
+as insertions. OpenAI API cost for all of this: about US$48.
+
+**Other notes.** Canary 1B v2 and Granite Speech 3.3 2B fall into repetition
+loops on long conversation clips (Canary writes up to 1,000 words for one
+clip). That is most of their NSC Part 3 error (58.5% and 74.5%) and Granite's
+129.8% on Part 4; Canary's Parts 4 to 6 were stopped for that reason.
+Qwen2.5-Omni 3B is a chat model and often answers the speaker instead of
+transcribing them ("I have never received or shared a lobang so I can't
+really answer that question", on NSC Part 3). It does this on about one in
+seven of NSC Part 2's short read questions (95.8%), and it loops on the
+Mandarin code-switched clips of Part 4 (132.4%). Its outputs are scored as
+they are, like every other model's.
+SenseVoice Small's 10.4% on NSC Part 2 is far below every other model except
+MERaLiON-2-3B, which suggests it, too, was trained on NSC read speech (see
+Benchmark protocol). † MERaLiON-2-10B-ASR is scored on a fixed 300-clip
+sample of NSC Part 3 (299 after the contamination filter): in 4-bit on the
+8 GB GPU it runs at up to 4x real time. On those same clips WhisperLah v3
+scores 18.8%, against its 22.4%.
 
 Full numbers, including substitutions/deletions/insertions per model:
 `results/table.json`. Every hypothesis for every clip: `results/<set>__<model>.jsonl`.
@@ -68,11 +118,11 @@ Lowest word error rate of every model we ran on the same clips (release adapter 
 
 | Test set | WhisperLah v3 | v2 | Best other model | Result |
 |---|---|---|---|---|
-| SASRBench-v1, close-talk | **14.8** | 15.1 | 16.2 (MERaLiON-2-3B) | win |
-| NSC Part 3, two-person conversation | **17.9** | 18.9 | 26.2 (public Singlish fine-tune) | win |
-| NSC Part 4, conversation | **27.8** | 29.5 | 40.8 (MERaLiON-2-3B) | win |
-| NSC Part 5, conversation | 14.3 | 14.3 | 18.8 (public Singlish fine-tune) | win (v2.1's 13.7 is lower still) |
-| NSC Part 6, conversation | **10.7** | 11.1 | 14.9 (MERaLiON-2-3B) | win |
+| SASRBench-v1, close-talk | **14.8** | 15.1 | 15.8 (GPT Transcribe) | win |
+| NSC Part 3, two-person conversation | **17.9** | 18.9 | 25.2 (Distil-Whisper large-v3.5)† | win |
+| NSC Part 4, conversation | **27.8** | 29.5 | 34.3 (GPT Transcribe) | win |
+| NSC Part 5, conversation | 14.3 | 14.3 | 16.3 (Parakeet TDT 0.6B v3) | win (v2.1's 13.7 is lower still) |
+| NSC Part 6, conversation | **10.7** | 11.1 | 13.5 (Parakeet TDT 0.6B v3) | win |
 | AMI meetings, headset mic (English) | **9.2** | 11.3 | 14.9 (Whisper large-v3-turbo) | win, vs Whisper only |
 | AMI meetings, table mic (English) | **24.9** | 33.0 | 34.1 (Whisper large-v3-turbo) | win, vs Whisper only |
 | NSC Part 1, read speech | 6.0 | 6.2 | 4.8 (MERaLiON-2-3B) | behind |
@@ -80,15 +130,22 @@ Lowest word error rate of every model we ran on the same clips (release adapter 
 | LibriSpeech clean (English) | 1.9 | 2.2 | 1.9 (Whisper large-v3-turbo) | level with base |
 | LibriSpeech other (English) | 4.5 | 4.7 | 3.9 (Whisper large-v3-turbo) | 0.6 pt behind base |
 
+† MERaLiON-2-10B-ASR was run on a 300-clip sample of Part 3 only: 22.4 there,
+against 18.8 for v3 on the same clips.
+
 Five of the seven Singlish test sets, including both public benchmarks, are
-won outright by a WhisperLah model, and v3 improves on v2 on six of the seven
-(Part 5 is flat). The two losses are read-speech sets whose prompt sentences
-recur in the training data (see Benchmark protocol), so we are not chasing
-them. The largest v3 gain is on far-field English meetings: AMI table mic
-falls from 33.0 to 24.9, from v3's AMI training data. On English meetings,
-only base Whisper has been measured so far; other English models have not
-been run, so those rows do not claim a leaderboard position. GPT-4o
-Transcribe is the weakest model measured on Singlish (30.8% SASRBench).
+won outright by a WhisperLah model, against every open model and OpenAI API
+we could run, and v3 improves on v2 on six of the seven (Part 5 is flat). The
+two losses are read-speech sets whose prompt sentences recur in the training
+data (see Benchmark protocol), so we are not chasing them. No single outside
+model comes closest everywhere: OpenAI's GPT Transcribe is nearest on
+SASRBench (1.0 pt behind v3's near-mic mode) and Part 4 (6.5 pt), NVIDIA's
+Parakeet on Parts 5 and 6 (2.0 and 2.7 pt), and MERaLiON-2-10B-ASR on Part 3
+(3.6 pt, on its 300-clip sample). The largest
+v3 gain is on far-field English meetings: AMI table mic falls from 33.0 to
+24.9, from v3's AMI training data. On English meetings, only base Whisper has
+been measured so far; other English models have not been run, so those rows
+do not claim a leaderboard position.
 
 **Release gate.** Set before scoring: v3 must improve NSC Part 3, be no more
 than 0.5 pt worse than v2 on any set, and stay within 0.5 pt of base Whisper
@@ -107,9 +164,10 @@ laptop GPU can reach (full reasoning in the repo's planning notes).
 | **KopiChat**, our own café-chat set (phone on a table, two speakers; recording protocol in `scripts/kopichat/README.md`) | not recorded yet | lowest of every model and the OpenAI API | recordings and consent forms needed |
 | **NSC Parts 3 to 6**, further | 17.9 / 27.8 / 14.3 / 10.7 (v3) | lower again, especially Part 5 | v3 done: 3 of 4 improved, Part 5 flat |
 | **AMI table-mic meetings** (far-field) | 24.9 (v3) | well below Whisper's 34.1 | done with v3: 9.2 pt below Whisper |
-| **SASRBench vs MERaLiON-2-10B** | beat the 3B; 10B unmeasured | confirm the win against the 10B | 4-bit run too slow on 8 GB; needs a sample run |
+| **SASRBench and NSC Part 3 vs MERaLiON-2-10B** | SASRBench 14.8 (v3 near-mic) vs 16.7; Part 3 18.8 vs 22.4 on 300 clips | confirm the win against the 10B | done in 4-bit (about 23 GPU-hours on 8 GB); Part 3 on a 300-clip sample |
 | **English regression gate** (LibriSpeech) | clean level with base, other 0.6 pt behind (v3) | within 0.5 pt of base | clean met; other missed by 0.1 pt |
-| OpenAI and other closed APIs | GPT-4o measured on 2 sets | all Singlish sets, KopiChat; other vendors later | in progress |
+| OpenAI and other closed APIs | all four OpenAI transcription models on all 7 Singlish sets (Whisper-1 on 2) | KopiChat; other vendors | OpenAI done: best is GPT Transcribe, behind v3 on 6 of 7 sets |
+| Other open ASR models | Parakeet, Canary, Voxtral, Granite, SenseVoice, Qwen2.5-Omni, Distil-Whisper | ahead of every open model on conversation | done: v3 ahead on all five conversational sets; best new model is SenseVoice Small |
 
 Not targeted: NSC Parts 1 and 2 (read speech), and large English leaderboards
 (Earnings-22, GigaSpeech, and similar). Those are decided by 10B-parameter
@@ -266,8 +324,20 @@ table, not with leaderboards that normalise differently.
 
 **Decoding.** Every Whisper-based model: greedy with Whisper's standard
 temperature fallback when an output's compression ratio exceeds 1.35, which
-catches repetition loops ("ya, ya, ya, …"). MERaLiON-2-3B: the authors'
-transcription prompt and settings, greedy, up to 320 new tokens.
+catches repetition loops ("ya, ya, ya, …"). MERaLiON-2-3B and -10B-ASR: the
+authors' transcription prompt and settings, greedy, up to 320 new tokens; the
+10B in 4-bit NF4 (`eval_meralion.py --load-in-4bit`) to fit 8 GB. Parakeet
+TDT 0.6B v3 and Canary 1B v2: the ONNX exports through `onnx-asr`
+(`eval_onnxasr.py`). Voxtral Mini 3B: 4-bit NF4 through the Transformers
+transcription request (`eval_voxtral.py`). Granite Speech 3.3 2B: the model
+card's transcription prompt (`eval_granite.py`). SenseVoice Small: `funasr`,
+English, inverse text normalisation on, its language, emotion and event tags
+removed (`eval_sensevoice.py`). Qwen2.5-Omni 3B: the text-only "thinker" with
+its language model in 4-bit NF4 (about 9 GB in bf16), the model card's system
+prompt and English transcription instruction, stopping at the end-of-turn
+token (`eval_qwen_omni.py`). The chat-style models (Voxtral, Granite,
+Qwen2.5-Omni) get up to 500 new tokens. Every model is run in English with its
+own default greedy decoding and no prompt tricks; OpenAI settings are above.
 
 ## Reproduce
 
@@ -279,6 +349,11 @@ uv pip install --python .venv/Scripts/python.exe transformers==4.46.3 peft==0.13
 uv venv --python 3.12 .venv-meralion
 uv pip install --python .venv-meralion/Scripts/python.exe torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 uv pip install --python .venv-meralion/Scripts/python.exe transformers==4.50.1 accelerate librosa soundfile pyarrow tqdm hf_xet
+# the other open models (Parakeet, Canary, Voxtral, Granite, SenseVoice, Qwen2.5-Omni) share a third one.
+# Keep onnxruntime-gpu at 1.22.0: newer builds need CUDA 13 and silently fall back to the CPU without it.
+uv venv --python 3.12 .venv-bench
+uv pip install --python .venv-bench/Scripts/python.exe torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu126
+uv pip install --python .venv-bench/Scripts/python.exe transformers==4.57.6 accelerate==1.15.0 bitsandbytes==0.50.2 onnx-asr==0.12.0 onnxruntime-gpu==1.22.0 funasr==1.4.16 mistral-common==1.12.0 librosa==1.0.0 soundfile==0.14.0 pyarrow tqdm
 
 python scripts/download.py && python scripts/download_v2.py
 cd scripts
@@ -287,6 +362,8 @@ python train_lora.py --steps 500 --save_every 125 --name lora-r32
 python prep_v2.py && python prep_near.py && python prep_v2.py --check
 python train_lora.py --steps 1400 --data v1,v2 --init ../runs/lora-r32/final --lr 2e-4 --specaug --save_every 200 --name v2
 bash run_v2_evals_b.sh                                   # every model, every test set
+# the newer open models, one set at a time (clip limits in Benchmark protocol), e.g.
+../.venv-bench/Scripts/python.exe eval_sensevoice.py --set sasrbench --limit 1200   # also eval_onnxasr, eval_voxtral, eval_granite, eval_qwen_omni
 python report.py && python table_md.py && python chart_v2.py whisperlah-v3 ../results/whisperlah_v3_chart.png && python chart_sota.py
 ```
 
@@ -324,7 +401,9 @@ Training and test audio come from IMDA's National Speech Corpus, through
 A*STAR MERaLiON's Multitask National Speech Corpus release on Hugging Face.
 Contains information from the National Speech Corpus accessed from IMDA, made
 available under the terms of the Singapore Open Data Licence version 1.0.
-SASRBench-v1 (`mjwong/SASRBench-v1`) is MIT-licensed. MERaLiON-2-3B is used
-for evaluation only, under its MERaLiON Public Licence. The per-clip result
+SASRBench-v1 (`mjwong/SASRBench-v1`) is MIT-licensed. MERaLiON-2-3B and
+MERaLiON-2-10B-ASR are used for evaluation only, under the MERaLiON Public
+Licence; every other outside model is used for evaluation only, under its own
+licence. The per-clip result
 files include reference transcripts so every number can be re-scored; no
 audio is redistributed here.

@@ -3,6 +3,7 @@
     python scripts/chart_sota.py          # reads results/table.json
 """
 import json
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -14,14 +15,27 @@ OTHER, OURS, OURS_OLD = "#9AA3B2", "#E2803B", "#F0BE96"
 
 # (result name, label, label position in data coordinates); outside models first
 OTHERS = [
-    ("whisper-large-v3-turbo", "Whisper large-v3-turbo\n(OpenAI, the base model)", (76.6, 70.6)),
-    ("mjwong-turbo-singlish", "Public Singlish fine-tune (mjwong)", (77.0, 75.6)),
-    ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)", (84.6, 71.3)),
-    ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe\n(OpenAI API)†", (69.8, 70.8)),
+    ("whisper-large-v3-turbo", "Whisper large-v3-turbo (base)", (76.4, 70.2)),
+    ("whisper-large-v3", "Whisper large-v3", (77.3, 77.4)),
+    ("distil-large-v3.5", "Distil-Whisper large-v3.5", (78.9, 76.4)),
+    ("parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B v3 (NVIDIA)", (72.6, 73.3)),
+    ("canary-1b-v2", "Canary 1B v2 (NVIDIA)", None),
+    ("Voxtral-Mini-3B", "Voxtral Mini 3B, 4-bit (Mistral)", (74.8, 73.35)),
+    ("granite-speech-3.3-2b", "Granite Speech 3.3 2B (IBM)", None),
+    ("SenseVoice-Small", "SenseVoice Small (Alibaba)", (82.6, 70.1)),
+    ("Qwen2.5-Omni-3B", "Qwen2.5-Omni 3B, 4-bit (Alibaba)", None),
+    ("mjwong-turbo-singlish", "Singlish fine-tune (mjwong)", (85.4, 74.8)),
+    ("MERaLiON-2-3B", "MERaLiON-2-3B (A*STAR)", (85.4, 71.6)),
+    ("MERaLiON-2-10B-ASR", "MERaLiON-2-10B, 4-bit (A*STAR)†", (85.4, 76.4)),
+    ("gpt-transcribe", "GPT Transcribe (OpenAI API)", (85.4, 73.7)),
+    ("gpt-4o-transcribe", "GPT-4o Transcribe (OpenAI API)", None),
+    ("gpt-4o-mini-transcribe-nochunk", "GPT-4o mini Transcribe (API)", (81.6, 68.5)),
+    ("gpt-4o-transcribe-diarize", "GPT-4o Transcribe, diarize (API)", (70.0, 69.3)),
+    ("whisper-1", "Whisper-1 (OpenAI API)", (75.4, 76.4)),
 ]
 # (result name, label, label position, is the release)
 OURS_PTS = [
-    ("whisperlah-v1", "WhisperLah v1", (74.0, 78.8), False),
+    ("whisperlah-v1", "WhisperLah v1", (74.6, 80.5), False),
     ("whisperlah-v2.1", "v2.1 room", (78.6, 79.4), False),
     ("whisperlah-v2", "v2 room", (81.2, 78.6), False),
     ("whisperlah-v2.1-near", "v2.1 near-mic", (83.2, 77.9), False),
@@ -55,17 +69,23 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
     for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
         ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>", color=OURS, lw=1.4,
                                                              shrinkA=7, shrinkB=7, alpha=0.7), zorder=2)
+    off = []  # outside models whose point falls off the axes
     for m, label, pos in OTHERS:
-        if m in xy:
-            ax.scatter(*xy[m], s=70, color=OTHER, zorder=3, edgecolor="white", linewidth=0.8)
-            ax.annotate(label, xy[m], xytext=pos, fontsize=9.5, color=INK2, va="center",
-                        ha="left" if pos[0] >= xy[m][0] else "right", arrowprops=LEADER)
+        if m not in xy:
+            continue
+        x, y = xy[m]
+        if not (xlo <= x <= xhi and ylo <= y <= yhi) or pos is None:
+            off.append(f"{label.split(' (')[0]} ({x:.0f}\u00a0/\u00a0{y:.0f})")  # no line break inside the pair
+            continue
+        ax.scatter(x, y, s=60, color=OTHER, zorder=3, edgecolor="white", linewidth=0.8)
+        ax.annotate(label, (x, y), xytext=pos, fontsize=8.5, color=INK2, va="center",
+                    ha="left" if pos[0] >= x else "right", arrowprops=LEADER)
     for m, label, pos, release in OURS_PTS:
         if m in xy:
             near = m.endswith("-near")
             ax.scatter(*xy[m], s=130 if release else 60, marker="D" if near else "o",
                        color=OURS if release else OURS_OLD, zorder=4, edgecolor="white", linewidth=0.8)
-            w = 100 - xy[m][0], 100 - xy[m][1]
+            w = t[("sasrbench", m)], t[("mnsc_part3", m)]  # straight from the table, so it rounds like the README
             ax.annotate(f"{label}  ({w[0]:.1f} / {w[1]:.1f})" if release else label, xy[m], xytext=pos,
                         fontsize=10 if release else 8.5, color=INK if release else INK2,
                         fontweight="bold" if release else "normal", va="center",
@@ -83,9 +103,15 @@ def main(out=ROOT / "results" / "whisperlah_sota_chart.png"):
     fig.text(0.07, 0.915, "Every model we ran on both public Singlish benchmarks, same clips and text normaliser. "
              "Top right is best.\nDashed: equal average accuracy. Bracketed on v3: its WER, SASRBench / NSC Part 3.\n"
              "Orange: WhisperLah (diamonds: near-mic mode); the arrows trace each release's best mode.", fontsize=9.5, color=INK2, va="top")
-    fig.text(0.07, 0.015, "† GPT-4o's NSC Part 3 score is on a 299-clip subset to limit API cost. "
-             "Contaminated clips excluded for every model.", fontsize=8, color=MUTED)
-    fig.subplots_adjust(left=0.08, right=0.97, top=0.83, bottom=0.09)
+    foot = "Contaminated clips excluded for every model."
+    if off:
+        foot = "Off the chart, word accuracy SASRBench / NSC Part 3: " + ", ".join(off) + ". " + foot
+    if ("mnsc_part3", "MERaLiON-2-10B-ASR") in t:
+        foot += ("\n† MERaLiON-2-10B's NSC Part 3 score is on a 300-clip sample (in 4-bit on an 8 GB GPU it runs at up to 4x "
+                 "real time); WhisperLah v3 scores 18.8% on the same clips.")
+    foot = "\n".join(textwrap.fill(line, 165) for line in foot.split("\n"))
+    fig.text(0.07, 0.012, foot, fontsize=8, color=MUTED, va="bottom")
+    fig.subplots_adjust(left=0.08, right=0.97, top=0.83, bottom=0.075 + 0.02 * (foot.count("\n") + 1))
     fig.savefig(out, facecolor=SURFACE)
     print(out)
 

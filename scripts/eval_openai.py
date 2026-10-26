@@ -37,12 +37,16 @@ def main():
     ap.add_argument("--model", default=None)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--env-file", help="dotenv file holding OPENAI_API_KEY")
+    ap.add_argument("--language", help='e.g. "en"; off by default, as in the headline runs')
+    ap.add_argument("--chunking", action="store_true", help='send chunking_strategy="auto"')
+    ap.add_argument("--name", help="results name; defaults to the model id")
     args = ap.parse_args()
 
     env = read_env(args.env_file)
     model = args.model or env.get("OPENAI_TRANSCRIBE_MODEL") or "gpt-4o-transcribe-diarize"
     client = OpenAI(api_key=env["OPENAI_API_KEY"])
     diarize = "diarize" in model
+    name = args.name or model
 
     rows = load_set(args.set, args.limit)
     hours = 0.0
@@ -56,6 +60,10 @@ def main():
         kw = dict(model=model, file=(f"clip{i}.wav", buf.read()))
         if diarize:
             kw.update(response_format="diarized_json", chunking_strategy="auto")
+        if args.language:
+            kw["language"] = args.language
+        if args.chunking:
+            kw["chunking_strategy"] = "auto"
         for attempt in range(5):
             try:
                 r = client.audio.transcriptions.create(**kw)
@@ -79,11 +87,11 @@ def main():
     pairs = [(norm(r["ref"]), norm(r["hyp"])) for r in out if "error" not in r]
     pairs = [(r, h) for r, h in pairs if r]
     rep = wer_report([r for r, _ in pairs], [h for _, h in pairs])
-    rep.update(model=model, adapter=None, set=args.set, name=model, audio_hours=round(hours, 2),
+    rep.update(model=model, adapter=None, set=args.set, name=name, language=args.language, chunking=args.chunking, audio_hours=round(hours, 2),
                runtime_s=round(secs), api_errors=errors, est_cost_usd=round(hours * 60 * 0.006, 2))
     print(json.dumps(rep, indent=1), flush=True)
 
-    save_jsonl(f"{ROOT}/results/{args.set}__{model}.jsonl", sorted(out, key=lambda r: r["idx"]))
+    save_jsonl(f"{ROOT}/results/{args.set}__{name}.jsonl", sorted(out, key=lambda r: r["idx"]))
     with open(f"{ROOT}/results/summary.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(rep) + "\n")
 
