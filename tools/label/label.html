@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting labeller</title>
+<!--
+  Correct silver meeting labels (WhisperLah words + pyannote speakers) into gold labels.
+  Runs offline from file://. Audio and transcripts never leave this browser; work is kept in
+  localStorage per meeting and saved as <meeting>.gold.json with the "Save gold" button.
+  Input: a draft JSON {audio, duration, speakers, segments:[{id,start,end,speaker,text}]} or a saved gold file.
+-->
+<style>
+  :root {
+    --paper: #F7F5F1; --surface: #FFFFFF; --ink: #1F1E1C; --ink2: #5F5B54; --muted: #8A857C;
+    --line: #E4DFD6; --accent: #E2803B; --accent-soft: #FBE7D7; --warn: #B54708; --done: #1F7A4D;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.4 system-ui, "Segoe UI", Arial, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--line); padding: 10px 16px 8px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .bar .grow { flex: 1; }
+  h1 { font-size: 16px; margin: 0 8px 0 0; }
+  button, label.btn { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button:hover, label.btn:hover { border-color: var(--ink2); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+  label.btn input { display: none; }
+  .stat { color: var(--ink2); font-variant-numeric: tabular-nums; }
+  canvas { display: block; width: 100%; margin-top: 8px; border-radius: 4px; background: var(--surface); cursor: pointer; }
+  #legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; color: var(--ink2); font-size: 12px; }
+  #legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 4px; vertical-align: -1px; background: var(--c); }
+  main { padding: 8px 16px 80px; }
+  #empty { color: var(--ink2); max-width: 640px; margin: 40px auto; }
+  .seg { display: grid; grid-template-columns: 44px 210px 92px 1fr 150px; gap: 8px; align-items: start;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c, var(--line));
+    border-radius: 6px; padding: 6px 8px; margin: 4px 0; }
+  .seg.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .seg.under { box-shadow: inset 4px 0 0 var(--ink); }
+  .seg.done { background: #F3F8F5; }
+  .seg .n { color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 4px; }
+  .times { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 4px; align-items: center; font-variant-numeric: tabular-nums; }
+  .times button { padding: 0 5px; font-size: 11px; }
+  .times .t { text-align: center; cursor: pointer; }
+  .times .len { grid-column: 1 / -1; font-size: 11px; color: var(--muted); text-align: center; }
+  .times .len.long { color: var(--warn); font-weight: 600; }
+  select { font: inherit; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  textarea { font: 15px/1.45 system-ui, "Segoe UI", Arial, sans-serif; width: 100%; min-height: 34px; resize: vertical;
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; color: var(--ink); background: var(--surface); }
+  textarea:focus, select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .flags { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ink2); }
+  .flags .row { display: flex; gap: 6px; align-items: center; }
+  .badge { font-size: 11px; border-radius: 4px; padding: 0 5px; background: var(--accent-soft); color: var(--ink); }
+  .badge.ok { background: #DDEFE5; color: var(--done); }
+  .tools { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+  .tools button { padding: 0 6px; font-size: 12px; }
+  #help { font-size: 12px; color: var(--ink2); margin-top: 4px; }
+  kbd { font: 11px ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; padding: 0 4px; background: var(--surface); }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--paper);
+    padding: 6px 12px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.on { opacity: 1; }
+  @media (max-width: 900px) { .seg { grid-template-columns: 36px 1fr; } .seg > * { grid-column: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1 id="title">Meeting labeller</h1>
+    <label class="btn">Open audio<input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.m4a"></label>
+    <label class="btn">Open draft<input type="file" id="draftFile" accept=".json,application/json"></label>
+    <button id="blindBtn" title="Clear the words of the next 5 minutes and type them from the audio alone">Blind check</button>
+    <button id="undoBtn" title="Alt+Z">Undo</button>
+    <span class="grow"></span>
+    <span class="stat" id="clock">0:00.00</span>
+    <span class="stat" id="rate">1.0x</span>
+    <span class="stat" id="progress">0 / 0 done</span>
+    <button class="primary" id="saveBtn">Save gold</button>
+  </div>
+  <canvas id="overview" height="18"></canvas>
+  <canvas id="detail" height="90"></canvas>
+  <div id="legend"></div>
+  <div id="help">
+    <kbd>Alt+P</kbd> play/pause segment · <kbd>Alt+R</kbd> replay · <kbd>Ctrl+Enter</kbd> done + next ·
+    <kbd>Alt+↑</kbd>/<kbd>Alt+↓</kbd> prev/next · <kbd>Alt+1…9</kbd> speaker · <kbd>Alt+[</kbd>/<kbd>Alt+]</kbd> start/end to playhead ·
+    <kbd>Alt+S</kbd> split · <kbd>Alt+M</kbd> merge next · <kbd>Alt+N</kbd> new · <kbd>Alt+Z</kbd> undo ·
+    <kbd>Alt+,</kbd>/<kbd>Alt+.</kbd> speed · <kbd>Alt+O</kbd> play on without stopping
+  </div>
+  <audio id="audio" preload="auto"></audio>
+</header>
+<main>
+  <div id="empty">Open the meeting's audio and its draft (or a saved <code>.gold.json</code>) to start.
+    Your work is kept in this browser as you go; use <b>Save gold</b> to write the file.</div>
+  <div id="list"></div>
+</main>
+<div id="toast"></div>
+<script>
+"use strict";
+const COLORS = ["#2a78d6", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948", "#0aa5b8", "#8a5a2b"];
+const MAX_LEN = 25, BLIND_SPAN = 300, NUDGE = 0.1, WINDOW = 30;
+const $ = id => document.getElementById(id);
+const audio = $("audio");
+
+let doc = null;          // {audio, duration, asr, diarization, speakers, segments}
+let selId = null;        // id of the selected segment
+let stopAt = null;       // segment end to pause at; null = play on
+let undoStack = [];
+let saveTimer = null;
+let nextId = 1;
+
+// ---------- helpers ----------
+const fmt = t => {
+  if (!isFinite(t)) return "-";
+  const m = Math.floor(t / 60), s = t - m * 60;
+  return `${m}:${s.toFixed(2).padStart(5, "0")}`;
+};
+const r2 = t => Math.round(t * 100) / 100;
+const key = () => "wl-label:" + (doc ? stem(doc.audio) : "");
+const stem = name => String(name || "").replace(/^.*[\\/]/, "").replace(/\.[^.]+$/, "");
+const esc = v => String(v).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+const colorOf = spk => COLORS[Math.max(0, doc.speakers.indexOf(spk)) % COLORS.length];
+const segById = id => doc.segments.find(s => s.id === id);
+const idx = () => doc.segments.findIndex(s => s.id === selId);
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 1800); }
+function sortSegs() { doc.segments.sort((a, b) => a.start - b.start || a.end - b.end); }
+function duration() { return doc.duration || audio.duration || Math.max(0, ...doc.segments.map(s => s.end)); }
+
+function normalise(d) {
+  const segs = (d.segments || []).map(s => ({
+    id: 0, start: r2(+s.start), end: r2(+s.end), speaker: String(s.speaker || "S1"), text: String(s.text || ""),
+    draft_text: s.draft_text !== undefined ? String(s.draft_text) : String(s.text || ""),
+    done: !!s.done, not_english: !!s.not_english, unclear: !!s.unclear, blind: !!s.blind, ...(s.added ? { added: true } : {}),
+  }));
+  nextId = 1;
+  segs.forEach(s => s.id = nextId++);
+  const speakers = [...new Set([...(d.speakers || []), ...segs.map(s => s.speaker)])];
+  const out = { audio: d.audio || "", duration: +d.duration || 0, asr: d.asr || "", diarization: d.diarization || "",
+                speakers, segments: segs };
+  out.segments.sort((a, b) => a.start - b.start || a.end - b.end);
+  return out;
+}
+
+// ---------- persistence ----------
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(key(), JSON.stringify({ doc, selId, nextId, saved: Date.now() })); } catch (e) { toast("Browser storage is full or blocked: use Save gold often"); }
+  }, 400);
+}
+function snapshot() {
+  undoStack.push(JSON.stringify({ segments: doc.segments, speakers: doc.speakers, selId }));
+  if (undoStack.length > 60) undoStack.shift();
+}
+function undo() {
+  const s = undoStack.pop();
+  if (!s) return toast("Nothing to undo");
+  const st = JSON.parse(s);
+  doc.segments = st.segments; doc.speakers = st.speakers; selId = st.selId;
+  render(); persist(); toast("Undone");
+}
+
+// ---------- loading ----------
+$("audioFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  audio.src = URL.createObjectURL(f);
+  audio.dataset.name = f.name;
+  if (doc && stem(doc.audio) && stem(doc.audio) !== stem(f.name)) toast(`Audio is ${f.name} but the draft is for ${doc.audio}`);
+  toast("Audio loaded");
+});
+$("draftFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  let d;
+  try { d = JSON.parse(await f.text()); } catch (err) { return alert("That file is not valid JSON."); }
+  if (!Array.isArray(d.segments)) return alert("No segments in that file.");
+  doc = normalise(d);
+  undoStack = [];
+  selId = doc.segments.length ? doc.segments[0].id : null;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(key()) || "null"); } catch (e) { return null; } })();
+  if (saved && saved.doc && confirm(`You have unsaved work on ${doc.audio} from ${new Date(saved.saved).toLocaleString()}. Continue from it?`)) {
+    doc = saved.doc; selId = saved.selId; nextId = saved.nextId || (Math.max(0, ...doc.segments.map(s => s.id)) + 1);
+  }
+  if (audio.dataset.name && stem(doc.audio) && stem(doc.audio) !== stem(audio.dataset.name)) toast(`Draft is for ${doc.audio} but the audio is ${audio.dataset.name}`);
+  $("title").textContent = stem(doc.audio) || "Meeting labeller";
+  $("empty").style.display = "none";
+  render();
+  persist();
+});
+
+// ---------- rendering ----------
+function render() {
+  if (!doc) return;
+  sortSegs();
+  const list = $("list");
+  list.textContent = "";
+  const frag = document.createDocumentFragment();
+  doc.segments.forEach((s, i) => frag.appendChild(row(s, i)));
+  list.appendChild(frag);
+  legend();
+  stats();
+  markSel(false);
+  draw();
+}
+function row(s, i) {
+  const el = document.createElement("div");
+  el.className = "seg" + (s.done ? " done" : "");
+  el.dataset.id = s.id;
+  el.style.setProperty("--c", colorOf(s.speaker));
+  const len = s.end - s.start;
+  el.innerHTML = `
+    <div class="n">${i + 1}</div>
+    <div class="times">
+      <button data-a="s-">◀</button><span class="t" data-a="play" title="Play">${fmt(s.start)}</span><button data-a="s+">▶</button>
+      <button data-a="e-">◀</button><span class="t" data-a="playend" title="Play the last 2 s">${fmt(s.end)}</span><button data-a="e+">▶</button>
+      <span class="len ${len > MAX_LEN ? "long" : ""}">${len.toFixed(2)} s${len > MAX_LEN ? " · over 25 s, split it" : ""}</span>
+    </div>
+    <div><select data-a="spk"></select></div>
+    <div><textarea rows="1" spellcheck="false" placeholder="${s.blind ? "Blind check: type what you hear" : "No words (delete the segment if nobody speaks)"}"></textarea></div>
+    <div class="flags">
+      <label class="row"><input type="checkbox" data-a="ne" ${s.not_english ? "checked" : ""}> Not English</label>
+      <label class="row"><input type="checkbox" data-a="un" ${s.unclear ? "checked" : ""}> Unclear</label>
+      <div class="row">${s.done ? '<span class="badge ok">done</span>' : ""}${s.blind ? '<span class="badge">blind</span>' : ""}</div>
+      <div class="tools"><button data-a="done">${s.done ? "Undone" : "Done"}</button><button data-a="del">Delete</button></div>
+    </div>`;
+  const sel = el.querySelector("select");
+  doc.speakers.forEach(sp => sel.add(new Option(sp, sp, false, sp === s.speaker)));
+  sel.add(new Option("New speaker…", "__new"));
+  const ta = el.querySelector("textarea");
+  ta.value = s.text;
+  autosize(ta);
+  return el;
+}
+function autosize(ta) { ta.style.height = "auto"; ta.style.height = Math.max(34, ta.scrollHeight + 2) + "px"; }
+function legend() {
+  $("legend").innerHTML = doc.speakers.map((sp, i) =>
+    `<span style="--c:${colorOf(sp)}">Alt+${i + 1} ${esc(sp)} · ${doc.segments.filter(s => s.speaker === sp).length}</span>`).join("");
+}
+function stats() {
+  const done = doc.segments.filter(s => s.done).length;
+  $("progress").textContent = `${done} / ${doc.segments.length} done`;
+}
+function rowEl(id) { return $("list").querySelector(`.seg[data-id="${id}"]`); }
+function markSel(scroll = true) {
+  $("list").querySelectorAll(".seg.sel").forEach(e => e.classList.remove("sel"));
+  const el = rowEl(selId);
+  if (el) { el.classList.add("sel"); if (scroll) el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+  draw();
+}
+function refreshRow(s) {
+  const old = rowEl(s.id); if (!old) return render();
+  const i = doc.segments.indexOf(s);
+  const el = row(s, i);
+  old.replaceWith(el);
+  if (s.id === selId) el.classList.add("sel");
+  stats(); legend(); draw();
+}
+
+// ---------- timeline ----------
+function draw() {
+  if (!doc) return;
+  const dpr = window.devicePixelRatio || 1;
+  const t = audio.currentTime || 0, D = duration() || 1;
+  // overview: the whole meeting on one lane
+  const ov = $("overview"), W = ov.clientWidth;
+  ov.width = W * dpr; ov.height = 18 * dpr;
+  let c = ov.getContext("2d"); c.scale(dpr, dpr); c.clearRect(0, 0, W, 18);
+  doc.segments.forEach(s => { c.globalAlpha = s.done ? 1 : 0.45; c.fillStyle = colorOf(s.speaker);
+    c.fillRect(s.start / D * W, 3, Math.max(1, (s.end - s.start) / D * W), 12); });
+  c.globalAlpha = 1;
+  const w0 = centre() - WINDOW / 2;
+  c.strokeStyle = "#1F1E1C"; c.lineWidth = 1; c.strokeRect(w0 / D * W, 0.5, WINDOW / D * W, 17);
+  c.fillStyle = "#E2803B"; c.fillRect(t / D * W - 1, 0, 2, 18);
+  // detail: the 30 s around the playhead, one row per speaker
+  const dt = $("detail"), DW = dt.clientWidth, n = Math.max(1, doc.speakers.length), H = Math.max(60, 16 + n * 16);
+  dt.style.height = H + "px"; dt.width = DW * dpr; dt.height = H * dpr;
+  c = dt.getContext("2d"); c.scale(dpr, dpr); c.clearRect(0, 0, DW, H);
+  const x = tt => (tt - w0) / WINDOW * DW;
+  c.fillStyle = "#8A857C"; c.font = "10px system-ui, sans-serif";
+  for (let s = Math.ceil(w0 / 5) * 5; s < w0 + WINDOW; s += 5) { c.fillRect(x(s), 0, 1, 4); c.fillText(fmt(s).replace(/\.\d+$/, ""), x(s) + 2, 10); }
+  doc.segments.forEach(s => {
+    if (s.end < w0 || s.start > w0 + WINDOW) return;
+    const r = Math.max(0, doc.speakers.indexOf(s.speaker));
+    c.globalAlpha = s.done ? 1 : 0.5; c.fillStyle = colorOf(s.speaker);
+    c.fillRect(x(s.start), 14 + r * 16, Math.max(2, x(s.end) - x(s.start)), 12);
+    c.globalAlpha = 1;
+    if (s.id === selId) { c.strokeStyle = "#1F1E1C"; c.lineWidth = 2; c.strokeRect(x(s.start), 13 + r * 16, Math.max(2, x(s.end) - x(s.start)), 14); }
+  });
+  c.fillStyle = "#E2803B"; c.fillRect(x(t) - 1, 0, 2, H);
+}
+function centre() {
+  const s = selId && segById(selId);
+  const t = !audio.paused || !s ? audio.currentTime || 0 : (s.start + s.end) / 2;
+  return Math.min(Math.max(t, WINDOW / 2), Math.max(WINDOW / 2, duration() - WINDOW / 2));
+}
+$("overview").addEventListener("click", e => {
+  if (!doc) return;
+  const r = e.target.getBoundingClientRect();
+  seek((e.clientX - r.left) / r.width * duration());
+});
+$("detail").addEventListener("click", e => {
+  if (!doc) return;
+  const r = e.target.getBoundingClientRect(), w0 = centre() - WINDOW / 2;
+  const t = w0 + (e.clientX - r.left) / r.width * WINDOW;
+  const row = Math.floor((e.clientY - r.top - 14) / 16), spk = doc.speakers[row];
+  const hit = doc.segments.find(s => s.speaker === spk && s.start <= t && t <= s.end);
+  if (hit) { selId = hit.id; markSel(); }
+  seek(t);
+});
+function seek(t) { audio.currentTime = Math.max(0, t); stopAt = null; underPlayhead(); draw(); }
+
+// ---------- playback ----------
+function playSeg(fromStart = true) {
+  const s = selId && segById(selId); if (!s || !audio.src) return toast(audio.src ? "Select a segment" : "Open the audio first");
+  if (fromStart || audio.currentTime < s.start || audio.currentTime >= s.end - 0.05) audio.currentTime = s.start;
+  stopAt = s.end; audio.play();
+}
+function togglePlay() { if (!audio.paused) { audio.pause(); return; } playSeg(false); }
+function playOn() { if (!audio.paused) { audio.pause(); return; } stopAt = null; audio.play(); }
+function tick() {
+  if (stopAt !== null && audio.currentTime >= stopAt) { audio.pause(); stopAt = null; }
+  $("clock").textContent = fmt(audio.currentTime || 0);
+  underPlayhead();
+  draw();
+  if (!audio.paused) requestAnimationFrame(tick);
+}
+audio.addEventListener("play", () => requestAnimationFrame(tick));
+audio.addEventListener("pause", tick);
+audio.addEventListener("seeked", tick);
+audio.addEventListener("loadedmetadata", () => { if (doc && !doc.duration) doc.duration = r2(audio.duration); draw(); });
+let under = new Set();
+function underPlayhead() {
+  if (!doc) return;
+  const t = audio.currentTime || 0;
+  const now = new Set(audio.paused ? [] : doc.segments.filter(s => s.start <= t && t < s.end).map(s => s.id));
+  under.forEach(id => { if (!now.has(id)) rowEl(id)?.classList.remove("under"); });
+  now.forEach(id => rowEl(id)?.classList.add("under"));
+  under = now;
+}
+function rate(d) {
+  audio.playbackRate = Math.min(2, Math.max(0.5, Math.round((audio.playbackRate + d) * 10) / 10));
+  $("rate").textContent = audio.playbackRate.toFixed(1) + "x";
+}
+
+// ---------- editing ----------
+function select(i, play = false) {
+  if (!doc.segments.length) return;
+  i = Math.min(Math.max(i, 0), doc.segments.length - 1);
+  selId = doc.segments[i].id;
+  markSel();
+  audio.currentTime = doc.segments[i].start; stopAt = null; if (!audio.paused) audio.pause();
+  const ta = rowEl(selId)?.querySelector("textarea"); if (ta) ta.focus({ preventScroll: true });
+  if (play) playSeg(true);
+}
+function setSpeaker(sp) {
+  const s = selId && segById(selId); if (!s) return;
+  if (!doc.speakers.includes(sp)) doc.speakers.push(sp);
+  s.speaker = sp; refreshRow(s); persist();
+}
+function setTime(which, t) {
+  const s = selId && segById(selId); if (!s) return;
+  t = r2(Math.max(0, Math.min(t, duration())));
+  if (which === "start") s.start = Math.min(t, s.end - 0.05); else s.end = Math.max(t, s.start + 0.05);
+  s.start = r2(s.start); s.end = r2(s.end);
+  const before = doc.segments.indexOf(s);
+  sortSegs();
+  if (doc.segments.indexOf(s) !== before) render(); else refreshRow(s);
+  persist();
+}
+function split() {
+  const s = selId && segById(selId); if (!s) return;
+  snapshot();
+  let t = audio.currentTime;
+  if (!(t > s.start + 0.05 && t < s.end - 0.05)) t = (s.start + s.end) / 2;
+  const ta = rowEl(s.id)?.querySelector("textarea");
+  const cut = ta && document.activeElement === ta ? ta.selectionStart : s.text.length;
+  const dcut = Math.round(s.draft_text.length * (cut / Math.max(1, s.text.length)));
+  const b = { ...s, id: nextId++, start: r2(t), text: s.text.slice(cut).trim(), draft_text: s.draft_text.slice(dcut).trim(), done: false };
+  s.end = r2(t); s.text = s.text.slice(0, cut).trim(); s.draft_text = s.draft_text.slice(0, dcut).trim(); s.done = false;
+  doc.segments.push(b);
+  selId = b.id; render(); persist(); toast("Split");
+}
+function mergeNext() {
+  const i = idx(); if (i < 0 || i >= doc.segments.length - 1) return;
+  snapshot();
+  const a = doc.segments[i], b = doc.segments[i + 1];
+  a.start = Math.min(a.start, b.start); a.end = Math.max(a.end, b.end);
+  a.text = [a.text, b.text].filter(Boolean).join(" ");
+  a.draft_text = [a.draft_text, b.draft_text].filter(Boolean).join(" ");
+  a.done = false; a.blind = a.blind || b.blind; a.not_english = a.not_english || b.not_english; a.unclear = a.unclear || b.unclear;
+  doc.segments.splice(i + 1, 1);
+  render(); persist(); toast("Merged with the next segment");
+}
+function addSeg() {
+  if (!doc) return;
+  snapshot();
+  const t = r2(audio.currentTime || 0), cur = selId && segById(selId);
+  const s = { id: nextId++, start: t, end: r2(Math.min(t + 2, duration())), speaker: cur ? cur.speaker : (doc.speakers[0] || "S1"),
+              text: "", draft_text: "", done: false, not_english: false, unclear: false, blind: false, added: true };
+  if (!doc.speakers.includes(s.speaker)) doc.speakers.push(s.speaker);
+  doc.segments.push(s); selId = s.id; render(); persist();
+  rowEl(s.id)?.querySelector("textarea")?.focus();
+  toast("New segment: set its end with Alt+]");
+}
+function delSeg(id) {
+  const i = doc.segments.findIndex(s => s.id === id); if (i < 0) return;
+  snapshot();
+  doc.segments.splice(i, 1);
+  selId = doc.segments.length ? doc.segments[Math.min(i, doc.segments.length - 1)].id : null;
+  render(); persist(); toast("Deleted (Alt+Z to undo)");
+}
+function doneNext() {
+  const i = idx(); if (i < 0) return;
+  const s = doc.segments[i];
+  s.text = (rowEl(s.id)?.querySelector("textarea")?.value ?? s.text).trim();
+  s.done = true; refreshRow(s); persist();
+  if (i < doc.segments.length - 1) select(i + 1, true); else toast("Last segment done: click Save gold");
+}
+function blindCheck() {
+  const s = selId && segById(selId); if (!s) return toast("Select the segment at minute 5 first");
+  const span = doc.segments.filter(x => x.start >= s.start && x.start < s.start + BLIND_SPAN);
+  if (!confirm(`Clear the words of ${span.length} segments from ${fmt(s.start)} to ${fmt(s.start + BLIND_SPAN)} and type them from the audio alone?`)) return;
+  snapshot();
+  span.forEach(x => { x.blind = true; x.text = ""; x.done = false; });
+  render(); persist(); toast("Blind check: type these segments from the audio");
+}
+
+// row events (delegated)
+$("list").addEventListener("click", e => {
+  const el = e.target.closest(".seg"); if (!el) return;
+  const s = segById(+el.dataset.id); if (!s) return;
+  if (selId !== s.id) { selId = s.id; markSel(false); }
+  const a = e.target.dataset.a;
+  if (a === "s-") setTime("start", s.start - NUDGE);
+  else if (a === "s+") setTime("start", s.start + NUDGE);
+  else if (a === "e-") setTime("end", s.end - NUDGE);
+  else if (a === "e+") setTime("end", s.end + NUDGE);
+  else if (a === "play") playSeg(true);
+  else if (a === "playend") { audio.currentTime = Math.max(s.start, s.end - 2); stopAt = s.end; audio.play(); }
+  else if (a === "done") { s.done = !s.done; refreshRow(s); persist(); }
+  else if (a === "del") delSeg(s.id);
+});
+$("list").addEventListener("change", e => {
+  const el = e.target.closest(".seg"); if (!el) return;
+  const s = segById(+el.dataset.id); if (!s) return;
+  const a = e.target.dataset.a;
+  if (a === "spk") {
+    let v = e.target.value;
+    if (v === "__new") { v = `S${doc.speakers.length + 1}`; }
+    selId = s.id; setSpeaker(v);
+  } else if (a === "ne") { s.not_english = e.target.checked; persist(); }
+  else if (a === "un") { s.unclear = e.target.checked; persist(); }
+});
+$("list").addEventListener("input", e => {
+  if (e.target.tagName !== "TEXTAREA") return;
+  const s = segById(+e.target.closest(".seg").dataset.id); if (!s) return;
+  s.text = e.target.value; autosize(e.target); persist();
+});
+$("list").addEventListener("focusin", e => {
+  const el = e.target.closest(".seg"); if (!el) return;
+  const id = +el.dataset.id;
+  if (selId !== id) { selId = id; markSel(false); }
+});
+
+// ---------- keys ----------
+document.addEventListener("keydown", e => {
+  if (!doc) return;
+  const k = e.key;
+  let hit = true;
+  if (e.ctrlKey && !e.altKey && k === "Enter") doneNext();
+  else if (e.altKey && !e.ctrlKey) {
+    const c = e.code;
+    if (c === "KeyP") togglePlay();
+    else if (c === "KeyR") playSeg(true);
+    else if (c === "KeyO") playOn();
+    else if (c === "ArrowUp") select(idx() - 1);
+    else if (c === "ArrowDown") select(idx() + 1);
+    else if (/^Digit[1-9]$/.test(c)) setSpeaker(doc.speakers[+c.slice(5) - 1] || `S${+c.slice(5)}`);
+    else if (c === "BracketLeft") setTime("start", audio.currentTime);
+    else if (c === "BracketRight") setTime("end", audio.currentTime);
+    else if (c === "KeyS") split();
+    else if (c === "KeyM") mergeNext();
+    else if (c === "KeyN") addSeg();
+    else if (c === "KeyZ") undo();
+    else if (c === "Comma") rate(-0.1);
+    else if (c === "Period") rate(0.1);
+    else hit = false;
+  } else hit = false;
+  if (hit) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+// a lone Alt press would focus the browser menu on Windows
+document.addEventListener("keyup", e => { if (e.key === "Alt" && doc) e.preventDefault(); }, true);
+
+// ---------- buttons ----------
+$("undoBtn").onclick = undo;
+$("blindBtn").onclick = () => doc && blindCheck();
+$("saveBtn").onclick = () => {
+  if (!doc) return;
+  const out = { format: "whisperlah-meeting-labels/1", audio: doc.audio, duration: duration(), asr: doc.asr,
+    diarization: doc.diarization, saved_at: new Date().toISOString(), speakers: doc.speakers,
+    segments: doc.segments.map(s => ({ id: s.id, start: s.start, end: s.end, speaker: s.speaker, text: s.text.trim(),
+      draft_text: s.draft_text, done: s.done, not_english: s.not_english, unclear: s.unclear, blind: s.blind,
+      ...(s.added ? { added: true } : {}) })) };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: "application/json" }));
+  a.download = `${stem(doc.audio)}.gold.json`;
+  a.click();
+  const left = doc.segments.filter(s => !s.done).length;
+  toast(left ? `Saved. ${left} segments still to check` : "Saved. Move it to data\\meetings\\gold\\");
+};
+window.addEventListener("beforeunload", () => { if (doc) { try { localStorage.setItem(key(), JSON.stringify({ doc, selId, nextId, saved: Date.now() })); } catch (e) {} } });
+window.addEventListener("resize", draw);
+</script>
+</body>
+</html>
