@@ -67,7 +67,7 @@ Give the webapp `ASR_URL` (the `api` endpoint URL Modal prints),
 
 ## Testing budget (to 15 Nov 2026)
 
-Default region, `min_containers=0`, `scaledown_window=60`, at most one L4
+Default region, `min_containers=0`, `scaledown_window=60`, at most one GPU (L4, else A10G, else T4)
 (`ASR_MAX_GPUS=1`). One hour of audio is about 3 min of L4 time plus a cold
 start. Set a spending limit in the Modal dashboard to stay inside the
 $30/month free credit.

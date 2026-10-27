@@ -1,7 +1,7 @@
 """Lepaq ASR on Modal: whole-file jobs on an L4, weights from a private Volume.
 
     POST /jobs -> modal.Dict (job state) -> Worker.process.spawn (queue, 2 retries)
-      -> L4 worker (0-1 containers while testing, 2 jobs each) -> signed callback to Lepaq
+      -> GPU worker, L4 preferred (0-1 containers while testing, 2 jobs each) -> signed callback to Lepaq
 
 Deploy (needs P's Modal account; nothing here uploads weights):
 
@@ -28,6 +28,10 @@ MODEL_VERSION = os.environ.get("MODEL_VERSION", "v3")
 MODELS = "/models"
 MAX_RETRIES = 2
 JOBS_PER_CONTAINER = 2
+# Preferred GPU first. Modal takes the first type it can schedule, so a job
+# no longer waits for an L4 when none is free. All three fit v3 + community-1
+# (6.8 GB peak on the 8 GB 4060). Per hour: L4 $0.80, A10G $1.10, T4 $0.59.
+GPUS = os.environ.get("ASR_GPUS", "L4,A10G,T4").split(",")
 
 app = modal.App("lepaq-asr")
 volume = modal.Volume.from_name("lepaq-asr-models")  # created and filled by hand, never by deploy
@@ -49,13 +53,13 @@ gpu_image = (
 )
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .uv_pip_install("fastapi", "pydantic>=2")
+    .uv_pip_install("fastapi", "pydantic>=2", "numpy")  # numpy: unpickles results stored before 27 Oct
     .env({"MODEL_VERSION": MODEL_VERSION})
     .add_local_file(SERVE / "jobs.py", "/root/jobs.py")
 )
 
 
-@app.cls(image=gpu_image, gpu="L4", volumes={MODELS: volume}, secrets=[secret],
+@app.cls(image=gpu_image, gpu=GPUS, volumes={MODELS: volume}, secrets=[secret],
          # Testing on the $30/month free credit (to 15 Nov): one L4 at most, and it
          # shuts down a minute after the last job. Raise max_containers for launch.
          min_containers=0, max_containers=int(os.environ.get("ASR_MAX_GPUS", "1")),
