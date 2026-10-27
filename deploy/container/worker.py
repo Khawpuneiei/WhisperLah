@@ -8,6 +8,10 @@ Routes
                                  puts the job JSON in S3 and calls /invocations)
     GET /health
 
+One-shot:  python worker.py run-job --job '<job JSON>'   (or ASR_JOB=<json>)
+    processes one meeting, posts the signed callback and exits; for a
+    Cloud Run job execution per meeting, so no idle GPU is billed.
+
 Environment
     MODELS_DIR / MODEL_VERSION   weights at $MODELS_DIR/$MODEL_VERSION/{whisper-ct2,pyannote}
     ASR_API_TOKEN, ASR_CALLBACK_SECRET
@@ -139,7 +143,50 @@ def create_app(engine=None, store=None):
     return app
 
 
+def run_once(job_json: str, engine=None, store=None, attempt: int = 0) -> int:
+    """One meeting, then exit: for a Cloud Run job (or any batch runner) that
+    starts one execution per meeting, so no GPU sits idle between meetings.
+
+    `attempt` is how many tries came before this one (Cloud Run sets
+    CLOUD_RUN_TASK_ATTEMPT); the last allowed try sends the failed callback.
+    Exit 0 when the job is settled (done, or failed for good), 1 to ask the
+    runner to retry."""
+    req = J.JobRequest(**json.loads(job_json))
+    store = store or FileStore(os.environ.get("ASR_STATE_DIR", "/tmp/asr-jobs"))
+    store.put(req.job_id, {**req.model_dump(), "status": "queued", "attempts": attempt,
+                           "model_version": MODEL_VERSION})
+    engine = engine or load_engine()
+
+    def get_stream(url):
+        return httpx.stream("GET", url, timeout=httpx.Timeout(30, read=300), follow_redirects=True)
+
+    def post(url, body, headers):
+        return httpx.post(url, content=body, headers=headers, timeout=30).status_code
+
+    try:
+        out = J.run_job(store.get(req.job_id), store=store, transcribe=engine.transcribe,
+                        get_stream=get_stream, post=post,
+                        secret=os.environ.get("ASR_CALLBACK_SECRET", ""), max_attempts=MAX_ATTEMPTS)
+    except Exception as e:
+        print(f"job {req.job_id} attempt {attempt + 1} failed: {type(e).__name__}: {e}", file=sys.stderr)
+        return 0 if store.get(req.job_id)["status"] == "failed" else 1
+    print(json.dumps({"job_id": req.job_id, "status": out["status"]}))
+    return 0
+
+
 if __name__ == "__main__":
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("command", nargs="?", default="serve",
+                    help="serve (HTTP; SageMaker passes this) or run-job (one meeting, then exit)")
+    ap.add_argument("--job", help="job JSON for run-job; defaults to $ASR_JOB")
+    args = ap.parse_args()
+    if args.command == "run-job":
+        job = args.job or os.environ.get("ASR_JOB")
+        if not job:
+            raise SystemExit("run-job needs --job '<json>' or ASR_JOB")
+        sys.exit(run_once(job, attempt=int(os.environ.get("CLOUD_RUN_TASK_ATTEMPT", "0"))))
     import uvicorn
 
     uvicorn.run(create_app(), host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), workers=1)

@@ -20,5 +20,6 @@ WORKDIR /app
 COPY scripts/serve/server.py scripts/serve/fallback.py scripts/serve/jobs.py /app/
 COPY deploy/container/worker.py /app/
 EXPOSE 8080
-# SageMaker runs the image with the argument "serve"; it is ignored here.
+# Default: HTTP server (SageMaker passes "serve"). One meeting and exit:
+#   docker run ... lepaq-asr run-job --job '<json>'   (Cloud Run job: set ASR_JOB per execution)
 ENTRYPOINT ["python", "/app/worker.py"]
