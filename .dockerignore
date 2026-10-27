@@ -1,0 +1,10 @@
+# Build context is the repo root; keep weights, data and envs out of it.
+models/
+runs/
+data/
+results/
+.venv*/
+*.safetensors
+*.bin
+*.pt
+.env*

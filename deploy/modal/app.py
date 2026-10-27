@@ -40,13 +40,13 @@ gpu_image = (
     .env({"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "MODEL_VERSION": MODEL_VERSION})
     .add_local_file(SERVE / "server.py", "/root/server.py")
     .add_local_file(SERVE / "fallback.py", "/root/fallback.py")
-    .add_local_file(HERE / "jobs.py", "/root/jobs.py")
+    .add_local_file(SERVE / "jobs.py", "/root/jobs.py")
 )
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install("fastapi", "pydantic>=2")
     .env({"MODEL_VERSION": MODEL_VERSION})
-    .add_local_file(HERE / "jobs.py", "/root/jobs.py")
+    .add_local_file(SERVE / "jobs.py", "/root/jobs.py")
 )
 
 

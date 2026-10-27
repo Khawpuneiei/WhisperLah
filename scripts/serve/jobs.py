@@ -1,7 +1,7 @@
 """Whole-file transcription jobs: HTTP API, worker step and signed callback.
 
-No Modal imports here, so the logic runs and is tested anywhere; app.py wires
-it to a Modal queue, a Modal Dict (job state) and the L4 worker.
+No platform imports here, so the same logic runs on any host; deploy/modal/app.py wires
+it to Modal and deploy/container/ to Cloud Run or SageMaker.
 
 Contract with the Lepaq webapp (agreed 27 Oct 2026):
 
@@ -98,14 +98,19 @@ def public(job: dict) -> dict:
     return {k: job[k] for k in keep if job.get(k) is not None}
 
 
-def make_api(store, enqueue: Callable[[dict], None], token: str, model_version: str) -> FastAPI:
-    """`store` is dict-like with get(key) and put(key, value, skip_if_exists=)
-    (a modal.Dict in production); `enqueue` hands a job to the worker queue."""
-    app = FastAPI(title="Lepaq ASR jobs")
-
+def bearer_auth(token: str) -> Callable:
+    """FastAPI dependency; with no token configured every request is refused."""
     def auth(authorization: Optional[str] = Header(default=None)):
         if not token or not hmac.compare_digest(authorization or "", f"Bearer {token}"):
             raise HTTPException(401, "bad or missing bearer token")
+    return auth
+
+
+def make_api(store, enqueue: Callable[[dict], None], token: str, model_version: str) -> FastAPI:
+    """`store` is dict-like with get(key) and put(key, value, skip_if_exists=)
+    (a modal.Dict, or a FileStore); `enqueue` hands a job to the worker queue."""
+    app = FastAPI(title="Lepaq ASR jobs")
+    auth = bearer_auth(token)
 
     @app.get("/health")
     def health():

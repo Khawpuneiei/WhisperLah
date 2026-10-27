@@ -1,5 +1,5 @@
 """Unit checks for the job API, worker step and callback signing; no Modal,
-no GPU.  python deploy/modal/test_jobs.py"""
+no GPU.  python scripts/serve/test_jobs.py"""
 import contextlib
 import json
 import sys
