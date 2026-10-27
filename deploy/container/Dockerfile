@@ -2,7 +2,8 @@
 # (Cloud Run volume, SageMaker model data, or a local folder). Never COPY models/.
 FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
 
-RUN apt-get update && apt-get install -y --no-install-recommends python3.12 python3.12-venv curl \
+RUN apt-get update && apt-get install -y software-properties-common && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends python3.12 python3.12-venv curl ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && curl -LsSf https://astral.sh/uv/0.11.32/install.sh | sh
 ENV PATH=/root/.local/bin:/opt/venv/bin:$PATH

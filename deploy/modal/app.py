@@ -35,6 +35,7 @@ gpu_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04", add_python="3.12")
     .uv_pip_install("torch==2.11.0", "torchaudio==2.11.0",
                     index_url="https://download.pytorch.org/whl/cu128")
+    .apt_install("ffmpeg")  # torchcodec, pulled in by pyannote.audio 4, links against it
     .uv_pip_install("pyannote.audio==4.0.7", "faster-whisper==1.2.1", "ctranslate2==4.8.3",
                     "av<16", "fastapi", "httpx", "python-multipart")
     .env({"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "MODEL_VERSION": MODEL_VERSION})
