@@ -105,6 +105,8 @@ def main():
 
     os.makedirs(f"{ROOT}/results", exist_ok=True)
     save_jsonl(f"{ROOT}/results/{args.set}__{args.name}.jsonl", sorted(out, key=lambda r: r["idx"]))
+    if rep["wer"] is None:
+        return
     with open(f"{ROOT}/results/summary.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(rep) + "\n")
 
