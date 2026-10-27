@@ -56,6 +56,7 @@ def test_signature_roundtrip():
     body, ts = b'{"job_id":"j"}', int(time.time())
     sig = J.sign(SECRET, ts, body)
     assert sig.startswith("v1=") and J.verify(SECRET, str(ts), sig, body)
+    assert len(sig) == 67 and all(c in "0123456789abcdef" for c in sig[3:])  # webapp: exactly 64 lowercase hex
     assert not J.verify(SECRET, str(ts), sig, body + b" ")
     assert not J.verify("other", str(ts), sig, body)
     assert not J.verify(SECRET, str(ts - 301), J.sign(SECRET, ts - 301, body), body)
