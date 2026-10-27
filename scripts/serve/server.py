@@ -15,7 +15,8 @@ Environment:
     WHISPERLAH_COMPUTE   float16 | int8_float16 | int8                     default float16
     WHISPERLAH_DEVICE    cuda | cpu                                        default cuda
     WHISPERLAH_BATCH     batch size for the VAD-chunked batched pipeline   default 16
-    WHISPERLAH_DIARIZE   community-1 | 3.1 | none                          default community-1 if HF_TOKEN is set
+    WHISPERLAH_DIARIZE   community-1 | 3.1 | none | path to a local pipeline dir  default community-1 if HF_TOKEN is set
+    WHISPERLAH_EMBEDDING_MODEL  name stored with each embedding when WHISPERLAH_DIARIZE is a path
     HF_TOKEN             Hugging Face token with the pyannote model accepted on the Hub
     WHISPERLAH_DIA_BATCH segmentation/embedding batch size for pyannote     default 32
     WHISPERLAH_API_KEY   if set, requests must send `Authorization: Bearer <key>`
@@ -170,13 +171,18 @@ class Engine:
 
         self.diarizer = None
         self.embedding_model = None
-        if diarize in DIARIZERS:
+        if diarize in DIARIZERS or os.path.isdir(diarize or ""):
             import pyannote.audio
             import torch
             from pyannote.audio import Pipeline
 
             self.pyannote_v3 = pyannote.audio.__version__.startswith("3.")
-            name, self.embedding_model = DIARIZERS[diarize]
+            if diarize in DIARIZERS:
+                name, self.embedding_model = DIARIZERS[diarize]
+            else:  # a local copy (config.yaml + checkpoints), e.g. on a Modal Volume
+                name = diarize
+                self.embedding_model = os.environ.get(
+                    "WHISPERLAH_EMBEDDING_MODEL", DIARIZERS["community-1"][1])
             t0 = time.time()
             try:
                 self.diarizer = Pipeline.from_pretrained(name, token=hf_token)      # pyannote.audio 4.x
@@ -190,21 +196,23 @@ class Engine:
                     setattr(self.diarizer, attr, dia_batch)
             log.info("loaded %s in %.1fs", name, time.time() - t0)
 
-    def diarize(self, wav) -> tuple[list[Turn], dict]:
+    def diarize(self, wav, **speakers) -> tuple[list[Turn], dict]:
         """Run pyannote; return turns and {pyannote label: centroid embedding}.
 
         pyannote.audio 4.x returns an object with `speaker_diarization`,
         `exclusive_speaker_diarization` (one speaker at a time, cleaner for
         word assignment) and `speaker_embeddings`; 3.x returns a tuple
-        (Annotation, embeddings). Both are handled.
+        (Annotation, embeddings). Both are handled. `speakers` takes
+        pyannote's num_speakers / min_speakers / max_speakers hints.
         """
         import torch
 
         audio = {"waveform": torch.from_numpy(wav)[None], "sample_rate": 16000}
+        speakers = {k: v for k, v in speakers.items() if v}
         if self.pyannote_v3:  # 4.x always returns embeddings and warns on the kwarg
-            out = self.diarizer(audio, return_embeddings=True)
+            out = self.diarizer(audio, return_embeddings=True, **speakers)
         else:
-            out = self.diarizer(audio)
+            out = self.diarizer(audio, **speakers)
         if isinstance(out, tuple):
             full, emb = out
             ann = full
@@ -215,13 +223,15 @@ class Engine:
         turns = [Turn(seg.start, seg.end, spk) for seg, _, spk in ann.itertracks(yield_label=True)]
         return turns, embeddings_by_label(full.labels(), emb)
 
-    def _diarize_locked(self, wav):
+    def _diarize_locked(self, wav, speakers):
         with self.dia_lock:
             t0 = time.time()
-            turns, embeddings = self.diarize(wav)
+            turns, embeddings = self.diarize(wav, **speakers)
             return turns, embeddings, round(time.time() - t0, 3)
 
-    def transcribe(self, path: str, mode: str, diarize: bool, language: Optional[str]) -> dict:
+    def transcribe(self, path: str, mode: str, diarize: bool, language: Optional[str],
+                   num_speakers: Optional[int] = None, min_speakers: Optional[int] = None,
+                   max_speakers: Optional[int] = None) -> dict:
         from faster_whisper.audio import decode_audio
 
         timing = {}
@@ -233,7 +243,9 @@ class Engine:
         # Diarization starts first, in its own thread, and runs while ASR does.
         dia_job = None
         if diarize and self.diarizer is not None:
-            dia_job = self.pool.submit(self._diarize_locked, wav)
+            speakers = dict(num_speakers=num_speakers, min_speakers=min_speakers,
+                            max_speakers=max_speakers)
+            dia_job = self.pool.submit(self._diarize_locked, wav, speakers)
 
         common = dict(language=language, task="transcribe", beam_size=1, best_of=1,
                       word_timestamps=True)
@@ -307,6 +319,9 @@ async def transcribe(
     mode: str = Form("room"),
     diarize: Optional[str] = Form(None),  # str on purpose, see parse_bool_form
     language: Optional[str] = Form(None),
+    num_speakers: Optional[int] = Form(None),
+    min_speakers: Optional[int] = Form(None),
+    max_speakers: Optional[int] = Form(None),
 ):
     if mode not in ("room", "near"):
         raise HTTPException(400, "mode must be room or near")
@@ -319,7 +334,8 @@ async def transcribe(
         t0 = time.time()
         # Off the event loop: a blocking call here would serialise every
         # request and make the separate ASR/diarizer locks pointless.
-        result = await run_in_threadpool(engine.transcribe, path, mode, diarize, language or None)
+        result = await run_in_threadpool(engine.transcribe, path, mode, diarize, language or None,
+                                         num_speakers, min_speakers, max_speakers)
         result["timing"]["wall_s"] = round(time.time() - t0, 3)
         return JSONResponse(result)
     finally:
@@ -339,8 +355,8 @@ def main():
         raise SystemExit("set WHISPERLAH_MODEL to a CTranslate2 model dir (see convert_ct2.py)")
     hf_token = os.environ.get("HF_TOKEN")
     diarize = os.environ.get("WHISPERLAH_DIARIZE", "community-1" if hf_token else "none")
-    if diarize not in DIARIZERS and diarize != "none":
-        raise SystemExit(f"WHISPERLAH_DIARIZE must be one of {', '.join(DIARIZERS)} or none")
+    if diarize not in DIARIZERS and diarize != "none" and not os.path.isdir(diarize):
+        raise SystemExit(f"WHISPERLAH_DIARIZE must be one of {', '.join(DIARIZERS)}, none, or a pipeline dir")
     engine = Engine(
         model_dir,
         device=os.environ.get("WHISPERLAH_DEVICE", "cuda"),
