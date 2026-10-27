@@ -189,6 +189,9 @@ def run_job(job: dict, *, store, transcribe: Callable, get_stream: Callable,
         result = transcribe(path, job.get("mode", "room"), True, job.get("language"),
                             job.get("num_speakers"), job.get("min_speakers"),
                             job.get("max_speakers"))
+        # Plain JSON types only: numpy floats from the models would make the
+        # stored job unreadable wherever numpy is not installed.
+        result = json.loads(json.dumps(result, default=float))
         return finish("done", result=result)
     except PermanentError as e:
         return finish("failed", error=str(e))

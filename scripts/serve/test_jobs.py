@@ -127,6 +127,15 @@ def test_job_done_sends_result():
     assert out2["status"] == "done" and posted2 == []
 
 
+def test_result_is_plain_json():
+    import numpy as np
+
+    store, job = queued_job()
+    out, _ = run(store, job, lambda *a: {"segments": [{"start": np.float32(0.5), "end": np.float64(1.0)}]})
+    seg = out["result"]["segments"][0]
+    assert type(seg["start"]) is float and type(seg["end"]) is float, seg
+
+
 def test_expired_audio_url_fails_without_retry():
     store, job = queued_job()
     out, posted = run(store, job, lambda *a: {}, status=403)

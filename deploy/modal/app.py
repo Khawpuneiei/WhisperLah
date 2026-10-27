@@ -21,7 +21,8 @@ from pathlib import Path
 import modal
 
 HERE = Path(__file__).resolve().parent
-SERVE = HERE.parents[1] / "scripts" / "serve"
+# Inside the container this file is /root/app.py, so only resolve the repo layout locally.
+SERVE = HERE.parents[1] / "scripts" / "serve" if modal.is_local() else HERE
 
 MODEL_VERSION = os.environ.get("MODEL_VERSION", "v3")
 MODELS = "/models"
