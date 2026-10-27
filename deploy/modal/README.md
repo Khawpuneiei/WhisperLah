@@ -8,7 +8,7 @@ scaled to zero when idle.
 Lepaq /process ── POST /jobs (bearer) ──> api (CPU) ──> modal.Dict job state
                                             │
                                             └─ Worker.process.spawn ──> L4 worker
-                                               (2 retries)               0-3 containers, 2 jobs each
+                                               (2 retries)               0-1 containers (testing), 2 jobs each
                                                                          │
 Lepaq /api/transcription/callback <── HMAC-signed POST ─────────────────┘
 Lepaq cron ── GET /jobs/{id} (bearer) ──> job state, for jobs with no callback after 15 min
@@ -22,8 +22,8 @@ of `jobs.py`; the webapp side builds to it on lepaq#2.
 | File | What |
 |---|---|
 | `app.py` | Modal wiring: images, Volume, Dict, worker class, web endpoint |
-| `jobs.py` | API, worker step, download, signed callback (no Modal imports) |
-| `test_jobs.py` | unit tests (`python deploy/modal/test_jobs.py`, CPU only) |
+| `../../scripts/serve/jobs.py` | API, worker step, download, signed callback (shared with deploy/container) |
+| `../../scripts/serve/test_jobs.py` | unit tests, CPU only |
 
 The worker runs `scripts/serve/server.py`'s `Engine`, the same code measured
 on the 4060, with the token-ratio fallback from `fallback.py`.
@@ -64,6 +64,13 @@ MODEL_VERSION=v3 modal deploy deploy/modal/app.py
 
 Give the webapp `ASR_URL` (the `api` endpoint URL Modal prints),
 `ASR_API_TOKEN` and `ASR_CALLBACK_SECRET`.
+
+## Testing budget (to 15 Nov 2026)
+
+Default region, `min_containers=0`, `scaledown_window=60`, at most one L4
+(`ASR_MAX_GPUS=1`). One hour of audio is about 3 min of L4 time plus a cold
+start. Set a spending limit in the Modal dashboard to stay inside the
+$30/month free credit.
 
 ## Behaviour
 

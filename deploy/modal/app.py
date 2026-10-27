@@ -1,12 +1,15 @@
 """Lepaq ASR on Modal: whole-file jobs on an L4, weights from a private Volume.
 
     POST /jobs -> modal.Dict (job state) -> Worker.process.spawn (queue, 2 retries)
-      -> L4 worker (0-3 containers, 2 jobs each) -> signed callback to Lepaq
+      -> L4 worker (0-1 containers while testing, 2 jobs each) -> signed callback to Lepaq
 
 Deploy (needs P's Modal account; nothing here uploads weights):
 
     modal secret create lepaq-asr ASR_API_TOKEN=... ASR_CALLBACK_SECRET=...
     MODEL_VERSION=v3 modal deploy deploy/modal/app.py
+
+Set a workspace spending limit in the Modal dashboard as well; the code caps
+GPUs, not dollars.
 
 Weights live in the private Volume `lepaq-asr-models`, one folder per version
 (see README.md for the layout). Rolling back is redeploying with the previous
@@ -52,7 +55,10 @@ web_image = (
 
 
 @app.cls(image=gpu_image, gpu="L4", volumes={MODELS: volume}, secrets=[secret],
-         min_containers=0, max_containers=3, scaledown_window=300, timeout=60 * 60,
+         # Testing on the $30/month free credit (to 15 Nov): one L4 at most, and it
+         # shuts down a minute after the last job. Raise max_containers for launch.
+         min_containers=0, max_containers=int(os.environ.get("ASR_MAX_GPUS", "1")),
+         scaledown_window=60, timeout=60 * 60,
          retries=modal.Retries(max_retries=MAX_RETRIES, initial_delay=10.0))
 @modal.concurrent(max_inputs=JOBS_PER_CONTAINER)
 class Worker:
