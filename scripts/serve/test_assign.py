@@ -3,10 +3,11 @@
     python scripts/serve/test_assign.py
 """
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, Path(__file__).resolve().parent.as_posix())
-from server import Turn, Word, assign_speakers, embeddings_by_label, parse_bool_form, relabel  # noqa: E402
+from server import GpuPeak, Turn, Word, assign_speakers, embeddings_by_label, parse_bool_form, relabel  # noqa: E402
 
 
 def words(spec):
@@ -71,6 +72,32 @@ def test_parse_bool_form():
     assert parse_bool_form("true") is True
     assert parse_bool_form("1") is True
     assert parse_bool_form(None, default=False) is False
+
+
+def test_gpu_peak_keeps_the_highest_reading():
+    import types
+
+    G = 2**30
+    readings = iter([(6 * G, 24 * G), (17 * G, 24 * G), (20 * G, 24 * G)])  # used 18, 7, 4 GiB
+    cuda = types.SimpleNamespace(is_available=lambda: True,
+                                 mem_get_info=lambda: next(readings, (20 * G, 24 * G)))
+    saved = sys.modules.get("torch")
+    sys.modules["torch"] = types.SimpleNamespace(cuda=cuda)
+    try:
+        with GpuPeak(interval=0.001) as gpu:
+            time.sleep(0.05)
+    finally:
+        if saved is None:
+            del sys.modules["torch"]
+        else:
+            sys.modules["torch"] = saved
+    assert gpu.gb == 18.0
+
+
+def test_gpu_peak_without_cuda():
+    with GpuPeak() as gpu:
+        pass
+    assert gpu.gb is None or gpu.gb >= 0
 
 
 if __name__ == "__main__":

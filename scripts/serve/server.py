@@ -153,6 +153,42 @@ def relabel(segments: list[dict], names: Optional[dict] = None) -> list[dict]:
 
 # ---------------------------------------------------------------- engine
 
+class GpuPeak:
+    """Peak memory in use on the GPU while a request runs, sampled every
+    `interval` s. It reads the whole device (cudaMemGetInfo), so it counts
+    CTranslate2's allocator as well as torch's, and anything else on the card.
+    `gb` is None without CUDA."""
+
+    def __init__(self, interval=0.25):
+        self.interval, self.gb = interval, None
+
+    def __enter__(self):
+        try:
+            import torch
+            if not torch.cuda.is_available():
+                return self
+        except ImportError:
+            return self
+        self._stop, self._peak = threading.Event(), 0
+
+        def sample():
+            while True:
+                free, total = torch.cuda.mem_get_info()
+                self._peak = max(self._peak, total - free)
+                if self._stop.wait(self.interval):
+                    return
+
+        self._thread = threading.Thread(target=sample, daemon=True, name="gpu-peak")
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        if hasattr(self, "_thread"):
+            self._stop.set()
+            self._thread.join()
+            self.gb = round(self._peak / 2**30, 2)
+
+
 class Engine:
     def __init__(self, model_dir, device, compute, batch_size, diarize, hf_token, dia_batch=32):
         from faster_whisper import BatchedInferencePipeline, WhisperModel
@@ -232,6 +268,13 @@ class Engine:
     def transcribe(self, path: str, mode: str, diarize: bool, language: Optional[str],
                    num_speakers: Optional[int] = None, min_speakers: Optional[int] = None,
                    max_speakers: Optional[int] = None) -> dict:
+        with GpuPeak() as gpu:
+            result = self._transcribe(path, mode, diarize, language,
+                                      num_speakers, min_speakers, max_speakers)
+        result["timing"]["peak_gpu_gb"] = gpu.gb
+        return result
+
+    def _transcribe(self, path, mode, diarize, language, num_speakers, min_speakers, max_speakers):
         from faster_whisper.audio import decode_audio
 
         timing = {}
