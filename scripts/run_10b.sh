@@ -1,6 +1,6 @@
 # MERaLiON-2-10B-ASR in 4-bit on the two headline Singlish sets. Runs after the
-# English gate (GPU is free) and before v3 training starts. Always writes a
-# marker so run_v3.sh never waits forever.
+# English gate when the GPU is free. Always writes a
+# completion marker.
 cd "$(dirname "$0")"
 export HF_HUB_DISABLE_SYMLINKS_WARNING=1 PYTHONIOENCODING=utf-8
 MPY=../.venv-meralion/Scripts/python.exe

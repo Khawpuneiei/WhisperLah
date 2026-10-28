@@ -2,7 +2,7 @@
 
 Every model is scored on the same normalised text and the same clips. A clip
 whose reference shares >=30% of its 8-grams with any training transcript
-(results/<set>_overlap_with_train.json, from prep_v2.py --check) is excluded
+(results/<set>_overlap_with_train.json) is excluded
 from every model's score, so no model gets credit for text we trained on.
 If models were run on different clip sets, a "common" view on the shared clips
 is added.
