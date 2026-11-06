@@ -4,8 +4,9 @@ WhisperLah is a Singlish speech recognition model built for Lepaq. This repo
 is its benchmark showcase: the contamination-checked evaluation harness and the
 per-clip results used to measure WhisperLah against every Singlish model we
 could run, including A*STAR's MERaLiON-2. **The model weights are proprietary
-and are not published here.** How WhisperLah is built and trained will be
-described in a technical report.
+and are not published here.** How WhisperLah is built, trained, evaluated
+and served is described in the
+**[technical report (PDF)](docs/WhisperLah-Technical-Report.pdf)**.
 
 **Lowest word error rate of every model tested on 5 of 7 Singlish test sets**, against 17 other models and API settings, including both public benchmarks: 14.8% on SASRBench-v1 (next best 15.8%, OpenAI's GPT Transcribe) and 18.0% on NSC two-person conversation (next best 25.2%, Distil-Whisper large-v3.5; MERaLiON-2-10B-ASR scores 22.4% on a sample of 299 clips, where v3 scores 18.8%). Behind on NSC Part 1 (6.0% vs 4.8% for MERaLiON-2-3B) and NSC Part 2 (21.7% vs 6.6% for MERaLiON-2-3B): read-speech sets whose prompt sentences recur in the training data (see Benchmark protocol). It also writes down the Singlish discourse particles (lah, leh, lor …) that other models drop: 76% of them on NSC Part 3, against 50% for the next best (OpenAI's GPT Transcribe) and 10% or less for 8 of the 17 others.
 
