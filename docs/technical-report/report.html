@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WhisperLah: Technical Report</title>
+<style>
+  @page { size: A4; margin: 20mm 19mm 20mm 19mm; }
+  :root { --ink: #1F1E1C; --ink2: #5F5B54; --muted: #8A857C; --grid: #E4DFD6; --paper: #F7F5F1; --orange: #E2803B; }
+  * { box-sizing: border-box; }
+  html { font-family: "Inter", "DejaVu Sans", sans-serif; font-size: 9.6pt; line-height: 1.5; color: var(--ink); }
+  body { margin: 0; }
+  h1, h2, h3 { font-family: "Inter Display", "Inter", sans-serif; line-height: 1.2; }
+  h2 { font-size: 15pt; margin: 0 0 8pt; padding-top: 2pt; break-after: avoid; }
+  h2 .num { color: var(--orange); margin-right: 6pt; }
+  h3 { font-size: 11pt; margin: 14pt 0 5pt; break-after: avoid; }
+  p { margin: 0 0 7pt; text-align: left; hyphens: auto; }
+  section { margin-bottom: 14pt; }
+  h2 { margin-top: 16pt !important; }
+  section.page > h2:first-child { margin-top: 0 !important; }
+  section.page { break-before: page; }
+  ul, ol { margin: 0 0 7pt; padding-left: 16pt; }
+  li { margin-bottom: 2.5pt; }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.2pt; background: var(--paper); padding: 0 2pt; border-radius: 2pt; }
+  table { border-collapse: collapse; width: 100%; margin: 4pt 0 10pt; font-size: 8.3pt; break-inside: avoid; font-variant-numeric: tabular-nums; }
+  th, td { border-bottom: 0.6pt solid var(--grid); padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  th { font-weight: 600; border-bottom: 1pt solid var(--ink); background: #fff; }
+  td.n, th.n { text-align: right; }
+  tr.ours td { background: #FCEEE3; }
+  caption { caption-side: bottom; text-align: left; font-size: 7.8pt; color: var(--ink2); padding-top: 4pt; }
+  figure { margin: 6pt 0 12pt; break-inside: avoid; }
+  figure img { width: 100%; display: block; }
+  figcaption { font-size: 7.8pt; color: var(--ink2); margin-top: 4pt; }
+  .box { background: var(--paper); border-left: 3pt solid var(--orange); padding: 7pt 10pt; margin: 6pt 0 10pt; break-inside: avoid; }
+  .box p:last-child { margin-bottom: 0; }
+  .small { font-size: 8pt; color: var(--ink2); }
+  b, strong { font-weight: 600; }
+
+  /* cover */
+  .cover { height: 255mm; display: flex; flex-direction: column; }
+  .cover .kicker { color: var(--orange); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 8.5pt; margin-top: 18mm; }
+  .cover h1 { font-size: 34pt; margin: 6pt 0 4pt; letter-spacing: -0.01em; }
+  .cover .sub { font-size: 13pt; color: var(--ink2); margin-bottom: 14mm; max-width: 150mm; }
+  .cover .meta { font-size: 9pt; color: var(--ink2); margin-bottom: 10mm; }
+  .cover .abstract { border-top: 1pt solid var(--ink); padding-top: 8pt; }
+  .cover .abstract h3 { margin-top: 0; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8pt; margin: 10mm 0 0; }
+  .kpi { background: var(--paper); padding: 8pt 9pt; border-radius: 3pt; }
+  .kpi .v { font-family: "Inter Display", "Inter", sans-serif; font-size: 19pt; font-weight: 700; }
+  .kpi .l { font-size: 7.6pt; color: var(--ink2); line-height: 1.35; }
+  .cover .foot { margin-top: auto; font-size: 7.6pt; color: var(--muted); }
+
+  .toc { columns: 2; column-gap: 14mm; font-size: 9pt; }
+  .toc div { break-inside: avoid; padding: 1.5pt 0; border-bottom: 0.5pt dotted var(--grid); }
+  .toc .num { color: var(--orange); display: inline-block; width: 18pt; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="kicker">Technical report · v1.0</div>
+  <h1>WhisperLah</h1>
+  <div class="sub">Low-cost adaptation of Whisper to Singlish and code-switched conversational speech, and serving it for meeting transcription</div>
+  <div class="meta">Lepaq · November 2026 · Results as of the WhisperLah v3 release</div>
+
+  <div class="abstract">
+    <h3>Abstract</h3>
+    <p>WhisperLah is a speech recognition model for Singapore English (Singlish), built for Lepaq, a meeting-memory CRM for coffee chats and sales meetings. It is a LoRA adapter (27.9 M trainable parameters) on OpenAI's open <code>whisper-large-v3-turbo</code>, trained on public IMDA National Speech Corpus data plus English meeting and read speech. All training ran on one 8 GB laptop GPU, about 31 GPU-hours across three versions. One adapter serves two labelling conventions, switched by a text prompt: <em>room mode</em> transcribes everyone, and <em>near-mic mode</em> transcribes only the wearer of a close-talk mic.</p>
+    <p>On a contamination-checked benchmark of seven Singlish test sets, scored with one text normaliser for every system, WhisperLah has the lowest word error rate (WER) on five of them, against 17 other open models and API settings. v3, the release, is lowest on four and ahead of every outside system on the fifth. This includes both public benchmarks: 14.8% on SASRBench-v1 (next best 15.8%, OpenAI GPT Transcribe) and 18.0% on NSC Part 3 two-person conversation (next best 25.2%). Most of the gain comes from deletions. Other systems drop the second speaker and the discourse particles (<em>lah, leh, lor</em>), and WhisperLah writes them down: it recalls 76% of particles on NSC Part 3, against 50% for the next best system. It is behind A*STAR's MERaLiON-2-3B on the two read-speech sets. Served as an int8 CTranslate2 model with pyannote diarization, it transcribes and diarizes a 61-minute meeting in 161 s on the laptop GPU, and a public 17.5-minute meeting in 49 s warm on a cloud L4.</p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">5 / 7</div><div class="l">Singlish test sets where WhisperLah has the lowest WER of 18 systems</div></div>
+    <div class="kpi"><div class="v">18.0%</div><div class="l">WER on NSC Part 3 conversation (base Whisper 27.7%, next best 25.2%)</div></div>
+    <div class="kpi"><div class="v">76%</div><div class="l">Singlish particles recalled on NSC Part 3 (next best 50%)</div></div>
+    <div class="kpi"><div class="v">~31 h</div><div class="l">Total training time, one 8 GB RTX 4060 laptop GPU</div></div>
+  </div>
+
+  <div class="foot">The WhisperLah weights and adapters are proprietary and are not distributed. The evaluation harness, scoring code and every per-clip hypothesis behind the numbers in this report are in this repository (<code>scripts/</code>, <code>results/</code>). Every figure in this report is drawn from <code>results/table.json</code> or from the measured serving runs cited in Section 8.</div>
+</div>
+
+<!-- ============ CONTENTS ============ -->
+<section class="page">
+  <h2>Contents</h2>
+  <div class="toc">
+    <div><span class="num">1</span>Introduction</div>
+    <div><span class="num">2</span>Model</div>
+    <div><span class="num">3</span>Two transcription modes</div>
+    <div><span class="num">4</span>Training data</div>
+    <div><span class="num">5</span>Training procedure and versions</div>
+    <div><span class="num">6</span>Evaluation protocol</div>
+    <div><span class="num">7</span>Results</div>
+    <div><span class="num">8</span>Serving and inference cost</div>
+    <div><span class="num">9</span>Speaker diarization in Lepaq</div>
+    <div><span class="num">10</span>Limitations</div>
+    <div><span class="num">11</span>Future work</div>
+    <div><span class="num">12</span>Data, licences and reproducibility</div>
+    <div><span class="num">A</span>Appendix: full results table</div>
+  </div>
+
+  <section style="margin-top:14pt">
+  <h2><span class="num">1</span>Introduction</h2>
+  <p>Singlish is the English spoken day to day in Singapore. It has its own phonology and prosody, discourse particles borrowed from Hokkien, Cantonese and Malay (<em>lah, leh, lor, meh, sia, hor, mah, liao</em>), local names and terms, and frequent switches into Mandarin, Malay or Hokkien inside one sentence. General-purpose recognisers trained mostly on US and UK English handle it poorly. The base model WhisperLah adapts, <code>whisper-large-v3-turbo</code>, scores 27.7% WER on NSC Part 3 conversation and writes down only 10% of the particles.</p>
+  <p>Lepaq records coffee chats and sales meetings, typically with a phone on a table and two or more speakers, and turns them into a diarized transcript, a report and a growing profile of each contact. So the target is conversational, multi-speaker Singlish, not read speech. Particles also matter: they carry stance and politeness, and an assistant that drops them loses some of the meaning.</p>
+  <p>This report describes how WhisperLah was built (Sections 2 to 5), how it was evaluated (Section 6), what it achieves and where it falls short (Section 7), how it is served inside Lepaq (Sections 8 and 9), and what remains open (Sections 10 and 11). We aimed for three things:</p>
+  <ol>
+    <li><b>Lowest WER on conversational Singlish</b> among every model we could run, including closed APIs.</li>
+    <li><b>Small compute.</b> Train on one consumer laptop GPU, and serve one hour of audio in minutes, at a small fraction of a closed API's price.</li>
+    <li><b>An honest benchmark.</b> Contamination filtering, the same normaliser and clips for every system, a release gate fixed before scoring, and every per-clip output published.</li>
+  </ol>
+  </section>
+</section>
+
+<!-- ============ MODEL ============ -->
+<section>
+  <h2><span class="num">2</span>Model</h2>
+  <p>WhisperLah is a low-rank adapter (LoRA) on <code>openai/whisper-large-v3-turbo</code> (MIT licence, 809 M parameters: the 32-layer large-v3 encoder and a 4-layer decoder). The base weights stay frozen in bf16. The adapter adds rank-32 updates (α = 64, dropout 0.05) to every attention projection (<code>q_proj</code>, <code>k_proj</code>, <code>v_proj</code>, <code>out_proj</code>) and to both MLP projections (<code>fc1</code>, <code>fc2</code>) of the encoder <em>and</em> the decoder. That is 27.9 M trainable parameters, about 3.4% of the base model.</p>
+  <table>
+    <tr><th>Component</th><th>Setting</th></tr>
+    <tr><td>Base model</td><td><code>openai/whisper-large-v3-turbo</code>, frozen, bf16, SDPA attention</td></tr>
+    <tr><td>Adapter</td><td>LoRA r = 32, α = 64, dropout 0.05, no bias; adapter weights kept in fp32</td></tr>
+    <tr><td>Target modules</td><td>q/k/v/out and fc1/fc2, in every encoder and decoder layer</td></tr>
+    <tr><td>Trainable parameters</td><td>27.9 M (about 3.4% of the base)</td></tr>
+    <tr><td>Input</td><td>128-bin log-mel, 30 s window, 16 kHz audio</td></tr>
+    <tr><td>Decoder prefix</td><td><code>&lt;|startoftranscript|&gt;&lt;|en|&gt;&lt;|transcribe|&gt;&lt;|notimestamps|&gt;</code>; optional prompt for near-mic mode (Section 3)</td></tr>
+  </table>
+  <h3>Why adapt the encoder</h3>
+  <p>Most of the gap on Singlish is acoustic: accent, particles, fast turn-taking and overlapping speech. A decoder-only adaptation could learn spelling and vocabulary, but it would not change what the encoder hears. Section 7.3 shows where the gain comes from. The base model's largest error class on conversation is deletion, meaning words it never emits. Adapting the encoder is what lets WhisperLah recover them.</p>
+  <h3>Why LoRA and turbo</h3>
+  <p>The constraint was one 8 GB laptop GPU (NVIDIA RTX 4060). With a frozen bf16 base, fp32 adapter weights and gradient checkpointing, training peaks at 3.2 GB of GPU memory. Turbo's 4-layer decoder makes decoding several times faster than large-v3's 32 layers, which matters for serving (Section 8). For deployment the adapter is merged into the base weights, so the served model has exactly turbo's architecture and speed.</p>
+
+  <h2 style="margin-top:16pt"><span class="num">3</span>Two transcription modes</h2>
+  <p>The two public Singlish benchmarks disagree about <em>whose</em> words count. The NSC conversation test sets label everyone in the room. SASRBench-v1 is cut from the same NSC Part 3 recordings, but labels only the speaker wearing the close-talk mic, even though the other speaker is audible. A model that writes down the background speaker is correct for meeting notes and "wrong" on SASRBench, where those words are counted as insertions.</p>
+  <p>WhisperLah v1 did exactly this. Most of its SASRBench errors were the other person's real words: its insertions (4,763) were about double its substitutions (2,541). The public Singlish fine-tune we compare against learned the opposite convention and drops the second speaker on NSC conversation. Rather than pick one convention, or tune per benchmark, v2 and v3 learn both, and a Whisper text prompt selects between them:</p>
+  <table>
+    <tr><th>Mode</th><th>How it is selected</th><th>Use</th></tr>
+    <tr><td><b>Room</b> (default)</td><td>no prompt</td><td>meetings and coffee chats: transcribe everyone</td></tr>
+    <tr><td><b>Near-mic</b></td><td>prompt <code>&lt;|startofprev|&gt; Near speaker only.</code></td><td>lapel or headset mic: transcribe the wearer only</td></tr>
+  </table>
+  <p><b>Training data for near-mic mode.</b> NSC has no labels for this convention, so we synthesised them. Single-speaker Singlish read speech (NSC Parts 1 and 2) is mixed with a random stretch of NSC Part 3 conversation 6 to 20 dB quieter, and labelled with the near speaker's words only. This gives 6,332 mixtures. The prompt tokens and the <code>&lt;|startoftranscript|&gt;</code> prediction are masked out of the loss (label −100), so the model learns to <em>condition</em> on the prompt and is never trained to produce it.</p>
+  <p>Both modes are reported on every public benchmark, so the reader can see the choice rather than have it tuned per test. In this report the headline SASRBench number uses near-mic mode, because SASRBench labels the near speaker. Every NSC number uses room mode, because NSC labels everyone. The accuracy index in Section 7.1 follows the same rule.</p>
+</section>
+
+<!-- ============ DATA ============ -->
+<section>
+  <h2><span class="num">4</span>Training data</h2>
+  <p>All Singlish training audio comes from IMDA's National Speech Corpus (NSC), through A*STAR MERaLiON's Multitask National Speech Corpus (MNSC) release, which also defines the held-out test splits used in Section 6. English data (AMI meetings and LibriSpeech) was added in v3 to stop a regression on English. No test-split audio is used for training, and test clips whose transcripts overlap training text are removed from scoring (Section 6.2).</p>
+  <table>
+    <tr><th>Source</th><th>Content</th><th class="n">v1</th><th class="n">v2</th><th class="n">v3</th></tr>
+    <tr><td>NSC Part 1</td><td>read sentences</td><td class="n">–</td><td class="n">2,929</td><td class="n">2,929</td></tr>
+    <tr><td>NSC Part 2</td><td>read sentences with Singapore names and terms</td><td class="n">–</td><td class="n">3,403</td><td class="n">37,434</td></tr>
+    <tr><td>NSC Part 3</td><td>two-person free conversation</td><td class="n">≈52 h</td><td class="n">11,257</td><td class="n">38,283</td></tr>
+    <tr><td>NSC Part 4</td><td>conversation, incl. code-switching</td><td class="n">–</td><td class="n">2,265</td><td class="n">9,627</td></tr>
+    <tr><td>NSC Part 5</td><td>conversation</td><td class="n">–</td><td class="n">1,871</td><td class="n">8,108</td></tr>
+    <tr><td>NSC Part 6</td><td>conversation</td><td class="n">–</td><td class="n">2,582</td><td class="n">9,034</td></tr>
+    <tr><td>Near-mic mixtures</td><td>Parts 1–2 over quiet Part 3 (Section 3)</td><td class="n">–</td><td class="n">6,332</td><td class="n">6,332</td></tr>
+    <tr><td>AMI, headset mic</td><td>English meetings, close-talk</td><td class="n">–</td><td class="n">–</td><td class="n">20,612</td></tr>
+    <tr><td>AMI, table mic</td><td>English meetings, far-field single distant mic</td><td class="n">–</td><td class="n">–</td><td class="n">31,467</td></tr>
+    <tr><td>LibriSpeech</td><td>English read speech</td><td class="n">–</td><td class="n">–</td><td class="n">10,194</td></tr>
+    <tr><td colspan="2"><b>Total clips</b></td><td class="n">Part 3 slice</td><td class="n"><b>30,639</b></td><td class="n"><b>174,020</b></td></tr>
+    <caption>Clips of up to 30 s. v1 used an evenly spaced slice of NSC Part 3 shards (every 15th of 171). Shards are taken evenly across each part for speaker spread. Clips with fewer than three words are not used for training. Counts for v2 exclude the v1 slice, which v2 and v3 also train on.</caption>
+  </table>
+  <h3>Sampling weights in v3</h3>
+  <p>v3's store is dominated by sources that are not the product's target: NSC Part 2 alone has 37 k clips, because its shards are about ten times denser than Part 3's. Part 2 is drawn at 0.1× its share of clips. It is there for Singapore names and terms, and its prompt sentences recur in the test split. The English sources (AMI headset, AMI table, LibriSpeech) are drawn at 0.6×, so the mix stays mostly Singlish. Sampling is with replacement under these weights, and one "epoch" is still one draw per usable clip.</p>
+  <h3>Text and features</h3>
+  <p>NSC transcripts carry markup: speaker tags, fillers in parentheses, foreign words between hashes, particles in square brackets. One cleaning function (<code>clean_nsc</code> in <code>scripts/common.py</code>) is applied to every training target. It keeps the particles as plain words (<code>[lah]</code> → <code>lah</code>) so the model learns to write them. Targets are truncated to Whisper's 448-token decoder limit.</p>
+  <p>Log-mel features are precomputed once. To fit tens of thousands of clips on a laptop disk, they are stored <em>unpadded</em> in one flat fp16 file with an index. A short read-speech clip is about 500 frames, not 3,000. Whisper pads with silence, and its log-mel normalisation turns silence into one per-clip constant (max − 2.0), so padding can be rebuilt exactly at batch time. We checked this against Whisper's own feature extractor. This kept v2's 31 k clips in 8.5 GB. v3's store, with every source above, was 54 GB.</p>
+</section>
+
+<!-- ============ TRAINING ============ -->
+<section>
+  <h2><span class="num">5</span>Training procedure and versions</h2>
+  <p>Every version uses the same loop: teacher-forced cross-entropy on the transcript tokens, AdamW (weight decay 0.01), gradient clipping at 1.0, linear warm-up over the first 5% of steps, then cosine decay to zero, micro-batch 4 with 4 steps of gradient accumulation (effective batch 16), bf16 autocast and gradient checkpointing. Each version is one run with one seed (seed 0). Each version after v1 starts from the previous version's final adapter.</p>
+  <table>
+    <tr><th>Version</th><th>Start</th><th>Data</th><th class="n">Steps</th><th class="n">Peak LR</th><th>SpecAugment</th><th class="n">GPU time</th></tr>
+    <tr><td>v1</td><td>fresh LoRA</td><td>NSC Part 3 slice (≈52 h)</td><td class="n">500</td><td class="n">3e-4</td><td>off</td><td class="n">1.6 h</td></tr>
+    <tr><td>v2</td><td>v1 final</td><td>v1 + 30.6 k clips, all six NSC parts + near-mic</td><td class="n">1,400</td><td class="n">2e-4</td><td>on</td><td class="n">4.5 h</td></tr>
+    <tr><td>v2.1</td><td>v2 final</td><td>the 8.1 k v2 clips v2 never reached</td><td class="n">300</td><td class="n">1e-4</td><td>on</td><td class="n">–</td></tr>
+    <tr class="ours"><td><b>v3</b></td><td>v2 final</td><td>174 k clips, weighted (Section 4)</td><td class="n">7,000</td><td class="n">1.5e-4</td><td>on</td><td class="n">≈25 h</td></tr>
+    <caption>SpecAugment: 5% time masking and 5% frequency masking, in 10-frame spans. Hardware: one NVIDIA RTX 4060 laptop GPU (8 GB), 3.2 GB peak. v3 ran at about 12 s per step and saw 0.67 epoch of its store.</caption>
+  </table>
+
+  <h3>Version history</h3>
+  <ul>
+    <li><b>v1</b>: a proof of concept on conversation only. NSC Part 3 WER fell from 27.7% to 19.5%, but SASRBench only from 24.0% to 22.2%, because v1 transcribed the background speaker (Section 3). This led to near-mic mode.</li>
+    <li><b>v2</b>: all six NSC parts, near-mic mode and SpecAugment. 1,400 steps covered 73% of the 30.6 k clips. It was the release until v3.</li>
+    <li><b>v2.1</b> (not released): 300 more steps on the clips v2 never reached. The rule, set before scoring, was "replace v2 only if the 7-set average improves". It did not: 17.00% against v2's 16.96%. It was better on Parts 1, 2, 5 and 6 and worse on SASRBench, Part 3 and Part 4. v2.1 stays in the results table as a negative result.</li>
+    <li><b>v3</b> (the release): 5.7× more clips, adding the rest of the NSC conversation shards plus English meetings and read speech. The run was interrupted after step 5,350 and resumed from the step-5,000 checkpoint. The cosine schedule position, step numbering and data stream were restored, and a 50-step re-warm-up covered the fresh optimiser moments.</li>
+  </ul>
+
+  <h3>Checkpoint probes</h3>
+  <p>Every 1,000 steps, the v3 checkpoint is scored on a fixed probe: 300 NSC Part 3 clips and 300 SASRBench clips, sampled with seed 0, in room mode (299 and 265 clips after the overlap filter). The released adapter is the final step-7,000 checkpoint. Its NSC Part 3 transcripts match the step-7,000 probe on 295 of the 300 probe clips.</p>
+  <figure>
+    <img src="fig_probes.png" alt="v3 probe WER by training step">
+    <figcaption>Figure 1. WhisperLah v3 checkpoints on the probe clips. NSC Part 3 improves steadily and flattens after step 5,000. Room-mode SASRBench rises after step 1,000 and recovers below its starting point by step 6,000. Probe numbers are on subsets and are not comparable with the full-set results in Section 7.</figcaption>
+  </figure>
+
+  <h3>Release gate</h3>
+  <p>The v3 gate was set before scoring:</p>
+  <ul>
+    <li>improve NSC Part 3</li>
+    <li>be no more than 0.5 pt worse than v2 on any set</li>
+    <li>stay within 0.5 pt of base Whisper on LibriSpeech</li>
+  </ul>
+  <p>v3 passes every Singlish and AMI condition and LibriSpeech clean. It misses LibriSpeech other by 0.1 pt: 4.53% against a 4.41% limit, though still better than v2's 4.68%. We released v3 as the default and report the miss, rather than move the gate after the fact.</p>
+</section>
+
+<!-- ============ EVAL ============ -->
+<section>
+  <h2><span class="num">6</span>Evaluation protocol</h2>
+  <h3>6.1 Test sets</h3>
+  <table>
+    <tr><th>Test set</th><th>What it is</th><th>Sampling</th><th class="n">Clips scored</th></tr>
+    <tr><td>SASRBench-v1 (<code>mjwong/SASRBench-v1</code>, MIT)</td><td>NSC Part 3 close-talk, near speaker labelled, 4–20 s</td><td>fixed random 1,200 of 3,747</td><td class="n">1,055</td></tr>
+    <tr><td>NSC Part 3 test (MNSC)</td><td>two-person conversation, ≤30 s</td><td>all 1,000</td><td class="n">997</td></tr>
+    <tr><td>NSC Part 4 test</td><td>conversation, code-switched with Mandarin and others</td><td>fixed random 300</td><td class="n">300</td></tr>
+    <tr><td>NSC Part 5 test</td><td>conversation</td><td>fixed random 300</td><td class="n">300</td></tr>
+    <tr><td>NSC Part 6 test</td><td>conversation</td><td>fixed random 300</td><td class="n">300</td></tr>
+    <tr><td>NSC Part 1 test</td><td>read speech</td><td>fixed random 500</td><td class="n">484</td></tr>
+    <tr><td>NSC Part 2 test</td><td>read speech, local names and terms</td><td>fixed random 500</td><td class="n">490</td></tr>
+    <tr><td>AMI, headset / table mic</td><td>English meetings (regression check)</td><td>test split</td><td class="n">11,653</td></tr>
+    <tr><td>LibriSpeech clean / other</td><td>English read speech (regression check)</td><td>test split</td><td class="n">2,620 / 2,939</td></tr>
+    <caption>The MNSC test splits are the standardised held-out splits released by A*STAR's MERaLiON team, the same ones AudioBench reports as "IMDA Part 1–6 ASR". Clips scored are after the contamination filter.</caption>
+  </table>
+
+  <h3>6.2 Contamination control</h3>
+  <p>Any test clip whose reference shares 30% or more of its word 8-grams with <em>any</em> WhisperLah training transcript is excluded from <em>every</em> system's score. The lists are in <code>results/*_overlap_with_train.json</code>. This removed 145 of the 1,200 sampled SASRBench clips, and a handful from each NSC part. Two caveats cannot be filtered away, and both favour other systems over WhisperLah:</p>
+  <ul>
+    <li><b>SASRBench audio.</b> SASRBench is cut from NSC Part 3 recordings, and 436 of its 3,747 clips fall inside just 20 of the 171 MNSC Part 3 training shards. A model trained on the full corpus, as MERaLiON-2 was on NSC-derived data at scale, has likely heard most of SASRBench. WhisperLah's training shards are a subset, and overlapping clips are removed.</li>
+    <li><b>Read-speech prompts.</b> NSC Parts 1 and 2 each consist of about 1,000 prompt sentences, each read by three speakers, and the same prompts recur across the training split. A single one of our training shards already contains the text of 2.1% (Part 2) to 3.7% (Part 1) of the test clips. A model trained on the full split has read essentially every test sentence. We exclude clips that overlap <em>our</em> training text, but cannot do the same for other systems' training data.</li>
+  </ul>
+
+  <h3>6.3 Scoring</h3>
+  <p>WER is computed with <code>jiwer</code> after one normaliser, applied identically to every reference and every hypothesis (<code>scripts/common.py</code>). It does the following:</p>
+  <ul>
+    <li>removes NSC markup (<code>&lt;Speaker1&gt;:</code>, <code>(uh)</code>, <code>(ppl)</code>, <code>**</code>, <code>#…#</code>, <code>~</code>)</li>
+    <li>keeps Singlish particles as words (<code>[lah]</code> → <code>lah</code>)</li>
+    <li>applies Whisper's <code>EnglishTextNormalizer</code></li>
+    <li>joins spelled acronyms, and maps <code>yeah/yah</code> → <code>ya</code> and <code>ok</code> → <code>okay</code></li>
+  </ul>
+  <p>Numbers are comparable within this report, not with leaderboards that normalise differently. <b>Particle recall</b> is the share of discourse particles in the references (lah, leh, lor, meh, sia, hor, mah, liao and others) that appear in the aligned hypothesis.</p>
+
+  <h3>6.4 Systems and decoding</h3>
+  <p>18 systems are compared: WhisperLah and 17 other open models and API settings, all scored on the same clips.</p>
+  <ul>
+    <li><b>Whisper family:</b> Whisper large-v3-turbo, Whisper large-v3, Distil-Whisper large-v3.5, and a public Singlish fine-tune of turbo (mjwong).</li>
+    <li><b>Other open models:</b> NVIDIA Parakeet TDT 0.6B v3 and Canary 1B v2, Mistral Voxtral Mini 3B, IBM Granite Speech 3.3 2B, Alibaba SenseVoice Small and Qwen2.5-Omni 3B, and A*STAR MERaLiON-2-3B and MERaLiON-2-10B-ASR.</li>
+    <li><b>OpenAI APIs:</b> GPT Transcribe, GPT-4o Transcribe, GPT-4o mini Transcribe, GPT-4o Transcribe diarize and Whisper-1.</li>
+  </ul>
+  <p>Every Whisper-based model decodes greedily with Whisper's standard temperature fallback when an output's compression ratio exceeds 1.35, which catches repetition loops. Every other model uses its authors' transcription prompt and default greedy decoding, in English, with no prompt tricks. Models that do not fit in 8 GB run in 4-bit NF4: MERaLiON-2-10B-ASR, Voxtral Mini 3B, and Qwen2.5-Omni 3B's language model. Each OpenAI model is shown at the API setting that scored better for it. GPT Transcribe and GPT-4o Transcribe use <code>chunking_strategy="auto"</code>, and Whisper-1 uses <code>language="en"</code>. The other settings are kept in <code>results/</code>. The OpenAI API cost for the whole benchmark was about US$48. Per-model details are in the repository README.</p>
+</section>
+
+<!-- ============ RESULTS ============ -->
+<section>
+  <h2><span class="num">7</span>Results</h2>
+  <h3>7.1 Overall</h3>
+  <p>We rank systems with an <em>accuracy index</em>, 100 minus the mean WER over the seven Singlish test sets. It is computed only for systems run on all seven full sets, with WhisperLah in near-mic mode on SASRBench and room mode elsewhere. WhisperLah v3 ranks first. It is ahead of MERaLiON-2-3B even though v3 loses both read-speech sets to it.</p>
+  <figure>
+    <img src="../../results/whisperlah_ranked_chart.png" alt="Accuracy index ranking">
+    <figcaption>Figure 2. Accuracy index (100 − mean WER over 7 Singlish sets) for every system run on all seven sets (<code>scripts/chart_ranked.py</code>).</figcaption>
+  </figure>
+  <table>
+    <tr><th>System</th><th class="n">Accuracy index</th><th class="n">SASRBench</th><th class="n">NSC P3</th><th class="n">P4</th><th class="n">P5</th><th class="n">P6</th><th class="n">P1</th><th class="n">P2</th></tr>
+    <tr class="ours"><td><b>WhisperLah v3</b></td><td class="n"><b>83.8</b></td><td class="n"><b>14.8</b></td><td class="n"><b>18.0</b></td><td class="n"><b>27.8</b></td><td class="n">14.3</td><td class="n"><b>10.7</b></td><td class="n">6.0</td><td class="n">21.7</td></tr>
+    <tr><td>WhisperLah v2</td><td class="n">83.0</td><td class="n">15.1</td><td class="n">19.0</td><td class="n">29.5</td><td class="n">14.3</td><td class="n">11.1</td><td class="n">6.2</td><td class="n">23.6</td></tr>
+    <tr><td>MERaLiON-2-3B (A*STAR)</td><td class="n">81.5</td><td class="n">16.2</td><td class="n">26.9</td><td class="n">40.8</td><td class="n">19.3</td><td class="n">14.9</td><td class="n"><b>4.8</b></td><td class="n"><b>6.6</b></td></tr>
+    <tr><td>SenseVoice Small (Alibaba)</td><td class="n">79.7</td><td class="n">18.1</td><td class="n">27.2</td><td class="n">47.2</td><td class="n">18.1</td><td class="n">15.6</td><td class="n">5.5</td><td class="n">10.4</td></tr>
+    <tr><td>GPT Transcribe (OpenAI API)</td><td class="n">79.6</td><td class="n">15.8</td><td class="n">26.9</td><td class="n">34.3</td><td class="n">16.9</td><td class="n">14.8</td><td class="n">5.3</td><td class="n">29.2</td></tr>
+    <tr><td>Singlish fine-tune (mjwong)</td><td class="n">77.4</td><td class="n">17.0</td><td class="n">26.2</td><td class="n">41.2</td><td class="n">18.8</td><td class="n">15.2</td><td class="n">8.9</td><td class="n">31.0</td></tr>
+    <tr><td>Parakeet TDT 0.6B v3 (NVIDIA)</td><td class="n">76.6</td><td class="n">26.1</td><td class="n">25.2</td><td class="n">42.7</td><td class="n">16.3</td><td class="n">13.5</td><td class="n">5.3</td><td class="n">34.9</td></tr>
+    <tr><td>Whisper large-v3 (OpenAI)</td><td class="n">76.4</td><td class="n">22.3</td><td class="n">25.7</td><td class="n">42.6</td><td class="n">20.6</td><td class="n">16.6</td><td class="n">6.7</td><td class="n">31.0</td></tr>
+    <tr><td>Distil-Whisper large-v3.5</td><td class="n">76.3</td><td class="n">21.8</td><td class="n">25.2</td><td class="n">43.7</td><td class="n">17.5</td><td class="n">15.4</td><td class="n">7.5</td><td class="n">34.6</td></tr>
+    <tr><td>Whisper large-v3-turbo (base)</td><td class="n">75.0</td><td class="n">24.0</td><td class="n">27.7</td><td class="n">43.0</td><td class="n">21.5</td><td class="n">17.6</td><td class="n">7.5</td><td class="n">33.6</td></tr>
+    <caption>WER, %, lower is better; top 10 by accuracy index. v2.1 (83.0) is omitted here; it reaches the lowest Part 5 WER of any system (13.7). The full table for all systems, including the English sets, is in Appendix A.</caption>
+  </table>
+
+  <h3>7.2 Per test set</h3>
+  <p>A WhisperLah model has the lowest WER on five of the seven Singlish sets: SASRBench, Parts 3, 4 and 6 (v3), and Part 5 (v2.1 at 13.7; v3 scores 14.3, still ahead of every outside system). The closest outside system differs by set:</p>
+  <ul>
+    <li><b>SASRBench:</b> GPT Transcribe, 1.0 pt behind v3.</li>
+    <li><b>Part 4:</b> GPT Transcribe, 6.5 pt behind.</li>
+    <li><b>Parts 5 and 6:</b> Parakeet, 2.0 and 2.7 pt behind.</li>
+    <li><b>Part 3:</b> MERaLiON-2-10B-ASR, 3.6 pt behind on a 300-clip sample: 22.4 against v3's 18.8 on the same 299 clips. In 4-bit on 8 GB, the 10B model runs at up to 4× real time, so it was scored only on SASRBench and this sample.</li>
+  </ul>
+  <figure>
+    <img src="../../results/whisperlah_grouped_chart.png" alt="Per-set results">
+    <figcaption>Figure 3. WhisperLah v3 against its five closest rivals and its base model on each Singlish test set (<code>scripts/chart_grouped.py</code>).</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h3>7.3 Where the gain comes from: deletions</h3>
+  <p>Splitting each system's errors into substitutions, deletions and insertions shows where WhisperLah gains. On NSC Part 3, base turbo makes 10,591 deletions against 7,252 substitutions. Deletions are 50% of its errors. GPT Transcribe (11,982 deletions) and MERaLiON-2-3B (10,130) show the same pattern. These systems leave out words that are in the reference: particles, fillers, overlapping back-channels and the quieter second speaker. WhisperLah v3 cuts deletions to 3,210, 70% fewer than its base model.</p>
+  <p>Substitutions fall less: 7,252 → 5,939, an 18% cut. GPT Transcribe's substitutions are about as low as v3's (5,888). So on clearly heard words the best API is already about as accurate. The 9-point gap is mostly words the API never writes down.</p>
+  <figure>
+    <img src="fig_errors.png" alt="Error decomposition on NSC Part 3">
+    <figcaption>Figure 4. Errors on NSC Part 3 split into substitutions, deletions and insertions, in WER points (<code>docs/technical-report/figures.py</code>).</figcaption>
+  </figure>
+  <p>Insertions go the other way, from 3,040 for the base model to 4,430 for v3. Some of these are real words that the reference leaves out. NSC transcribers do not always mark short back-channels from the other speaker. Others are real errors. We have not separated the two by hand, so we report the raw number.</p>
+
+  <h3>7.4 Singlish discourse particles</h3>
+  <p>WhisperLah v3 writes down 76% of the reference particles on NSC Part 3 (792 particles in the references) and 70% on SASRBench in near-mic mode (272). The next best is GPT Transcribe, with 50% and 48%. Eight of the 17 outside systems recall 10% or fewer on NSC Part 3. That group includes the base model (10%), MERaLiON-2-3B (3%) and the other Singlish fine-tune (6%). The particle gain was already present in v1 (74%). It comes from training on particle-bearing transcripts with the particles kept as words, which the other Singlish fine-tunes appear to normalise away.</p>
+  <figure>
+    <img src="fig_particles.png" alt="Particle recall on NSC Part 3">
+    <figcaption>Figure 5. Discourse-particle recall on NSC Part 3 for WhisperLah v3 and a selection of outside systems; every system's value is in the repository README.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h3>7.5 Where WhisperLah is behind</h3>
+  <ul>
+    <li><b>NSC Part 1 (read speech):</b> 6.0% against 4.8% for MERaLiON-2-3B.</li>
+    <li><b>NSC Part 2 (read speech, local names):</b> 21.7% against 6.6% for MERaLiON-2-3B and 10.4% for SenseVoice Small.</li>
+  </ul>
+  <p>These are the sets where recurring prompt sentences make training-text overlap almost certain for any model trained on the full split (Section 6.2). Every other outside system scores 29% or more on Part 2, so the two outliers are what one would expect from models that read the test sentences. We do not chase these sets. They do not match the product (read sentences, not conversation), and v3 deliberately down-weights Part 2 to 0.1×.</p>
+
+  <h3>7.6 English regression and meetings</h3>
+  <table>
+    <tr><th>Set (English)</th><th class="n">Base turbo</th><th class="n">v2</th><th class="n">v3</th><th>Comment</th></tr>
+    <tr><td>AMI meetings, headset mic</td><td class="n">14.9</td><td class="n">11.3</td><td class="n"><b>9.2</b></td><td>−5.7 pt vs base</td></tr>
+    <tr><td>AMI meetings, table mic (far-field)</td><td class="n">34.1</td><td class="n">33.0</td><td class="n"><b>24.9</b></td><td>−9.2 pt vs base; largest v3 gain</td></tr>
+    <tr><td>LibriSpeech clean</td><td class="n">1.9</td><td class="n">2.2</td><td class="n">1.9</td><td>level with base</td></tr>
+    <tr><td>LibriSpeech other</td><td class="n">3.9</td><td class="n">4.7</td><td class="n">4.5</td><td>0.6 pt behind base; gate missed by 0.1 pt</td></tr>
+  </table>
+  <p>Adapting to Singlish cost v2 some English accuracy. Adding English data in v3 recovered most of it on read speech, and made v3 much better than its base on English meetings, especially far-field (AMI table mic, 34.1 → 24.9). The AMI gain is expected, since v3 trains on the AMI training split. Only base Whisper and WhisperLah have been run on the English sets, so these rows do not claim any leaderboard position.</p>
+
+  <h3>7.7 v2 to v3</h3>
+  <p>v3 improves on v2 on six of the seven Singlish sets (Part 5 flat at 14.3) and on both AMI sets. The largest Singlish gains are on conversation: Part 4 −1.7 pt, Part 3 −1.0 pt, Part 2 −1.9 pt. Particle recall on NSC Part 3 rises from 74% to 76%.</p>
+
+  <div class="box">
+    <p><b>How to read "lowest WER".</b> Every claim in this section is "among the 18 systems we ran, on the same clips, with the same normaliser". Several large commercial recognisers have not been tested yet, including Google, Microsoft, AWS, Deepgram, AssemblyAI and ElevenLabs. For Alibaba, only its open models were tested. WhisperLah is itself built on OpenAI's open Whisper.</p>
+  </div>
+</section>
+
+<!-- ============ SERVING ============ -->
+<section>
+  <h2><span class="num">8</span>Serving and inference cost</h2>
+  <h3>8.1 Conversion</h3>
+  <p>For serving, the adapter is merged into the base weights and converted to CTranslate2. The model is then run in int8 (<code>int8_float16</code>) through faster-whisper's batched pipeline, with batch size 16. A conversion gate checks that the served model's WER is no worse than the reference evaluation path, on the same 300 clips with seed 0.</p>
+  <p>The first conversion of v2 seemed to lose about 1 WER point on NSC Part 3. The cause was not quantisation but the temperature-fallback rule. transformers measures the compression ratio on token ids. faster-whisper measures it on text, so at the same 1.35 threshold it flagged 293 of 300 clips instead of the 5 to 7 real repetition loops, re-decoded nearly everything, and fixed none of the loops. Its batched pipeline also never falls back at all.</p>
+  <p>The fix (<code>fallback.py</code> in the serving code) runs the batched greedy pass, detects loops with the token-id ratio, and re-decodes only the looping segments with temperature fallback. All of the reference path's gain over greedy decoding came from those few loops. On them, WER drops from 150% (greedy) to 48% (with fallback). After the fix, v2 served at int8 beat its own fp16 reference on both sets: 19.77 against 20.18 on NSC Part 3, and 14.60 against 15.05 on SASRBench near-mic.</p>
+  <table>
+    <tr><th>v3 conversion check, 300 clips, seed 0</th><th class="n">v3 served (CT2 int8)</th><th class="n">v2 served</th><th class="n">v3 reference (HF fp16)</th></tr>
+    <tr><td>NSC Part 3, batched (server path)</td><td class="n">18.83</td><td class="n">19.77</td><td class="n"><b>17.98</b></td></tr>
+    <tr><td>SASRBench, near-mic, batched</td><td class="n"><b>13.48</b></td><td class="n">14.60</td><td class="n">15.0</td></tr>
+    <tr><td>61-min meeting, whole file, diarized (RTX 4060)</td><td class="n"><b>161.3 s</b></td><td class="n">173.6 s</td><td class="n"></td></tr>
+    <caption>The served v3 beats the served v2 everywhere and its own reference on near-mic. It is 0.85 pt behind its reference on NSC Part 3, so it missed the "match or beat the reference" condition on that set. It was deployed because it improves on the v2 model it replaced. The 300-clip subsets are not comparable with the full-set numbers in Section 7.</caption>
+  </table>
+
+  <h3>8.2 Pipeline</h3>
+  <p>The serving engine is used both on the laptop and in the cloud worker. It runs ASR and diarization concurrently on the same GPU. Each request starts pyannote diarization in its own thread while WhisperLah transcribes. Whisper segments are then assigned to speakers by time overlap, and each speaker gets a 256-dimensional WeSpeaker ResNet34 embedding (Section 9). Running both stages at once roughly halved wall time: with v2 on the 61-minute meeting, 327.7 s with the stages one after the other, and 169.1 s concurrent. Both models together peak at 6.5 to 6.8 GB of GPU memory.</p>
+
+  <h3>8.3 Speed against a closed API</h3>
+  <table>
+    <tr><th>61-min meeting, transcription + speaker labels</th><th class="n">Wall time</th><th class="n">RTF</th></tr>
+    <tr class="ours"><td>WhisperLah v3 int8 + pyannote community-1, RTX 4060 laptop, whole file</td><td class="n"><b>161.3 s</b></td><td class="n">0.044</td></tr>
+    <tr><td>WhisperLah v2 int8 + pyannote community-1, RTX 4060, 600 s parts, 3 in flight</td><td class="n">169.1 s</td><td class="n">0.046</td></tr>
+    <tr><td>OpenAI <code>gpt-4o-transcribe-diarize</code>, 600 s parts, 3 in flight</td><td class="n">491.8 s</td><td class="n">0.134</td></tr>
+    <caption>One real 61-minute meeting, measured 23 Oct (v2, API) and 27 Oct 2026 (v3). Warm server. RTF = wall time ÷ audio duration. This is one recording, and the OpenAI run was chunked the way the webapp chunked it at the time.</caption>
+  </table>
+
+  <h3>8.4 Cloud deployment</h3>
+  <p>In production, Lepaq sends each recording as one job to a private endpoint on Modal. A CPU web endpoint queues the job, an NVIDIA L4 worker runs it, and the result returns through a signed callback. The worker scales to zero when idle. Weights live in a private storage volume, one folder per model version, and are never baked into the container image. Measured on a public AMI meeting (ES2004a, 17.5 min, 4 speakers):</p>
+  <table>
+    <tr><th>AMI ES2004a, 1,049 s, job submitted → done</th><th class="n">Wall</th><th class="n">Worker</th><th class="n">RTF</th></tr>
+    <tr><td>Warm (container already running)</td><td class="n"><b>49.0 s</b></td><td class="n">34.3 s</td><td class="n">0.033</td></tr>
+    <tr><td>Cold (scaled to zero)</td><td class="n">228.7 s</td><td class="n">36.5 s</td><td class="n">0.035</td></tr>
+  </table>
+  <p>Per audio second, the L4 is about 1.3× faster than the laptop GPU. On it, diarization is now the longest step, about twice the ASR time. A cold start adds about 160 s before the worker begins, while a GPU is found and the container starts. So a coffee-chat transcript arrives about 4 minutes after upload when nothing is warm, and in under a minute when a worker is warm.</p>
+  <p><b>Cost.</b> The three test jobs were billed US$0.09 in total. Scaling the 17.5-minute run's RTF to an hour gives an estimated US$0.05 of GPU credit for a one-hour meeting from a cold start, or about US$0.03 back to back. For comparison, OpenAI's diarizing transcription model is listed at US$0.36 per audio hour. These are estimates from one measured run, not a billed month. Speaker-label accuracy is not yet measured (Section 9).</p>
+</section>
+
+<!-- ============ DIARIZATION ============ -->
+<section>
+  <h2><span class="num">9</span>Speaker diarization in Lepaq</h2>
+  <p>Whisper does not label speakers. In Lepaq, WhisperLah replaces only the transcription step, and a separate cascade handles "who spoke when". The stack:</p>
+  <ul>
+    <li><b>Diarization:</b> <code>pyannote/speaker-diarization-community-1</code> (CC-BY-4.0), run stock in production. When the meeting's participant list gives the number of speakers, it is passed to the diarizer.</li>
+    <li><b>Speaker embeddings:</b> pyannote's built-in WeSpeaker ResNet34 (256-dim), frozen. The embedding model's name is stored with every vector, so a later change of embedder stays traceable.</li>
+    <li><b>Human check:</b> every transcript goes through a speaker check in the app before a report is written.</li>
+  </ul>
+  <p>Embeddings are keyed by the full diarization's labels. That way, a speaker who only ever talks over someone cannot shift the vectors of the speakers after them, and a unit test covers this. Embeddings are stored per meeting but are not yet used to recognise people across meetings. Doing that needs a consent flow, because voiceprints are biometric data.</p>
+  <h3>Segmentation fine-tune (experimental, not deployed)</h3>
+  <p>None of the Singlish audio we have comes with speaker timings, so we synthesised conversations with exact timings. Single-speaker NSC Part 1 and 2 clips are cut at their internal pauses. Pieces from 2 to 4 speakers are then interleaved, with gaps, some overlap and occasional back-channels, and an energy-based speech detector run on each clean clip sets the reference timings. Fine-tuning community-1's segmentation model on these mixtures lowered DER on the synthetic test split (built from NSC test speakers) from 40.4% to 35.8%. Retuning the clustering thresholds lowered it further, to 22.5% (21.5% when the true speaker count is given). But that retuned clustering over-split speakers on real meetings, so the stock clustering is kept. On the synthetic test set, giving the diarizer the speaker count removed about half of the speaker confusions.</p>
+  <div class="box">
+    <p><b>Status.</b> The fine-tuned segmentation is gated: it replaces the stock checkpoint only after it beats stock community-1 on a held-out, hand-labelled real meeting. Diarization error on real Singlish meetings has <b>not been measured yet</b>. Three real meetings (30, 24 and 61 minutes; 573 chunks) have been run through every ASR model, and scoring waits on their silver labels being corrected to gold. This is the largest open quality question in the pipeline.</p>
+  </div>
+
+  <h2 style="margin-top:16pt"><span class="num">10</span>Limitations</h2>
+  <ul>
+    <li><b>Audio conditions.</b> NSC is quiet, close-mic studio audio. No benchmark here covers café noise or a phone on a table, the product's main use. AMI table-mic is the closest proxy, and it is English.</li>
+    <li><b>Coverage of competitors.</b> Major commercial ASR vendors other than OpenAI have not been tested (Section 7.7). MERaLiON-2-10B-ASR was run in 4-bit, on SASRBench and a 300-clip sample of NSC Part 3 only.</li>
+    <li><b>Single runs.</b> One training run and one seed per version, and no confidence intervals. Differences under about 0.5 pt, such as v3 against v2 on Part 5, should be treated as ties.</li>
+    <li><b>Code-switching depth.</b> Training and test text are English-script transcripts with foreign words marked. WhisperLah is not evaluated as a Mandarin or Malay recogniser, and code-switched spans count only through the NSC reference spelling.</li>
+    <li><b>Read speech.</b> Behind MERaLiON-2-3B on NSC Parts 1 and 2 (Section 7.5).</li>
+    <li><b>English.</b> 0.6 pt behind base Whisper on LibriSpeech other, 0.1 pt outside our own gate.</li>
+    <li><b>Serving gap.</b> The int8 served v3 is 0.85 pt behind its fp16 reference on the NSC Part 3 probe (Section 8.1).</li>
+    <li><b>Insertions.</b> Room mode writes more words than the reference contains. Some of these are real speech the references miss, but we have not quantified that.</li>
+    <li><b>Clip length.</b> The model sees 30-second windows. Long audio is segmented by the serving pipeline, and errors at window boundaries are not separately measured.</li>
+  </ul>
+</section>
+
+<!-- ============ FUTURE ============ -->
+<section>
+  <h2><span class="num">11</span>Future work</h2>
+  <ul>
+    <li><b>KopiChat</b>, our own café-chat test set: a phone on a table and two speakers, recorded under a written protocol with consent forms (<code>scripts/kopichat/README.md</code>). It is the benchmark that matches the product, and it is not recorded yet.</li>
+    <li><b>Real-meeting diarization and cpWER.</b> Gold speaker labels for the three real meetings, then DER and concatenated minimum-permutation WER (cpWER). This also gates the segmentation fine-tune and tests whether ResNet34 embeddings match the same person across meetings and across languages.</li>
+    <li><b>Speaker-check logs as training data.</b> Every correction a user makes in Lepaq's speaker check is logged as an RTTM-style sidecar. Around 10 hours of corrected, real Singlish labels is the threshold for a segmentation fine-tune on real data.</li>
+    <li><b>Diarization-conditioned ASR.</b> A DiCoW-style model (diarization-conditioned Whisper) that transcribes per target speaker, driven by diarizer masks. We will revisit it once overlap errors in the cascade are the main remaining problem and enough corrected labels exist.</li>
+    <li><b>Serving.</b> A GPU region in Asia, faster diarization (GPU clustering, or NVIDIA's Nemotron diarizer as a challenger), and a shorter cold start.</li>
+    <li><b>Broader comparison.</b> The remaining commercial APIs on all seven sets, plus KopiChat once it exists.</li>
+  </ul>
+
+  <h2 style="margin-top:16pt"><span class="num">12</span>Data, licences and reproducibility</h2>
+  <p><b>Data.</b> Training and test audio come from IMDA's National Speech Corpus, through A*STAR MERaLiON's Multitask National Speech Corpus release on Hugging Face. Contains information from the National Speech Corpus accessed from IMDA, made available under the terms of the Singapore Open Data Licence version 1.0. SASRBench-v1 is MIT-licensed. AMI and LibriSpeech are used under their own licences. MERaLiON-2 models are used for evaluation only, under the MERaLiON Public Licence. Every other outside model is used for evaluation only, under its own licence.</p>
+  <p><b>What is published.</b> This repository contains the evaluation harness (<code>scripts/eval_*.py</code>, <code>scripts/common.py</code>), the contamination lists, every hypothesis for every clip and system (<code>results/&lt;set&gt;__&lt;model&gt;.jsonl</code>, with references so any number can be re-scored), the aggregated table (<code>results/table.json</code>), and the chart and figure scripts. No audio is redistributed.</p>
+  <p><b>What is not published.</b> The WhisperLah adapters, merged models and converted serving models are proprietary, and are not distributed here or on any model hub. The training recipe in Sections 2 to 5 describes how they were built, but the trained weights are not released.</p>
+  <p class="small">Company logos in the charts are trademarks of their owners, used only to show who made each model (sources in <code>docs/logos/SOURCES.md</code>).</p>
+</section>
+
+<!-- ============ APPENDIX ============ -->
+<section class="page">
+  <h2><span class="num">A</span>Appendix: full results table</h2>
+  <p class="small">WER, %, lower is better. Bold is the best score on each set. TBD means not run. English sets were run only for base Whisper and WhisperLah. Near-mic mode and v1 were scored on the two public benchmarks only. † MERaLiON-2-10B-ASR on a 300-clip sample of NSC Part 3 (v3: 18.8 on the same clips).</p>
+  <table style="font-size:7.1pt"><tr><th>Model</th><th class=n>SASR-Bench</th><th class=n>NSC P3</th><th class=n>NSC P1</th><th class=n>NSC P2</th><th class=n>NSC P4</th><th class=n>NSC P5</th><th class=n>NSC P6</th><th class=n>AMI head-set</th><th class=n>AMI table</th><th class=n>Libri clean</th><th class=n>Libri other</th></tr>
+<tr><td>Whisper large-v3-turbo (OpenAI, the base model)</td><td class=n>24.0</td><td class=n>27.7</td><td class=n>7.5</td><td class=n>33.6</td><td class=n>43.0</td><td class=n>21.5</td><td class=n>17.6</td><td class=n>14.9</td><td class=n>34.1</td><td class=n><b>1.9</b></td><td class=n><b>3.9</b></td></tr>
+<tr><td>Whisper large-v3 (OpenAI)</td><td class=n>22.3</td><td class=n>25.7</td><td class=n>6.7</td><td class=n>31.0</td><td class=n>42.6</td><td class=n>20.6</td><td class=n>16.6</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Distil-Whisper large-v3.5</td><td class=n>21.8</td><td class=n>25.2</td><td class=n>7.5</td><td class=n>34.6</td><td class=n>43.7</td><td class=n>17.5</td><td class=n>15.4</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Parakeet TDT 0.6B v3 (NVIDIA)</td><td class=n>26.1</td><td class=n>25.2</td><td class=n>5.3</td><td class=n>34.9</td><td class=n>42.7</td><td class=n>16.3</td><td class=n>13.5</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Canary 1B v2 (NVIDIA)</td><td class=n>27.5</td><td class=n>58.5</td><td class=n>5.2</td><td class=n>36.9</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Voxtral Mini 3B (Mistral, 4-bit)</td><td class=n>25.6</td><td class=n>27.7</td><td class=n>6.8</td><td class=n>35.0</td><td class=n>55.3</td><td class=n>18.3</td><td class=n>16.0</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Granite Speech 3.3 2B (IBM)</td><td class=n>52.0</td><td class=n>74.5</td><td class=n>9.3</td><td class=n>40.1</td><td class=n>129.8</td><td class=n>26.4</td><td class=n>18.5</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>SenseVoice Small (Alibaba)</td><td class=n>18.1</td><td class=n>27.2</td><td class=n>5.5</td><td class=n>10.4</td><td class=n>47.2</td><td class=n>18.1</td><td class=n>15.6</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Qwen2.5-Omni 3B (Alibaba, 4-bit)</td><td class=n>51.3</td><td class=n>75.9</td><td class=n>16.3</td><td class=n>95.8</td><td class=n>132.4</td><td class=n>40.0</td><td class=n>39.4</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Public Singlish fine-tune (mjwong)</td><td class=n>17.0</td><td class=n>26.2</td><td class=n>8.9</td><td class=n>31.0</td><td class=n>41.2</td><td class=n>18.8</td><td class=n>15.2</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>MERaLiON-2-3B (A*STAR)</td><td class=n>16.2</td><td class=n>26.9</td><td class=n><b>4.8</b></td><td class=n><b>6.6</b></td><td class=n>40.8</td><td class=n>19.3</td><td class=n>14.9</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>MERaLiON-2-10B-ASR (A*STAR, 4-bit)</td><td class=n>16.7</td><td class=n>22.4†</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>GPT Transcribe (OpenAI API)</td><td class=n>15.8</td><td class=n>26.9</td><td class=n>5.3</td><td class=n>29.2</td><td class=n>34.3</td><td class=n>16.9</td><td class=n>14.8</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>GPT-4o Transcribe (OpenAI API)</td><td class=n>40.6</td><td class=n>63.5</td><td class=n>7.5</td><td class=n>35.3</td><td class=n>69.1</td><td class=n>49.5</td><td class=n>40.2</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>GPT-4o mini Transcribe (OpenAI API)</td><td class=n>18.7</td><td class=n>28.2</td><td class=n>7.1</td><td class=n>39.2</td><td class=n>43.6</td><td class=n>22.1</td><td class=n>17.6</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>GPT-4o Transcribe, diarize (OpenAI API)</td><td class=n>30.8</td><td class=n>28.5</td><td class=n>8.3</td><td class=n>33.6</td><td class=n>50.3</td><td class=n>19.0</td><td class=n>16.0</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>Whisper-1 (OpenAI API)</td><td class=n>24.0</td><td class=n>25.9</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>WhisperLah v1</td><td class=n>22.2</td><td class=n>19.5</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>WhisperLah v2 · room mode</td><td class=n>16.8</td><td class=n>19.0</td><td class=n>6.2</td><td class=n>23.6</td><td class=n>29.5</td><td class=n>14.3</td><td class=n>11.1</td><td class=n>11.3</td><td class=n>33.0</td><td class=n>2.2</td><td class=n>4.7</td></tr>
+<tr><td>WhisperLah v2 · near-mic mode</td><td class=n>15.1</td><td class=n>18.9</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>WhisperLah v2.1 · room mode</td><td class=n>18.4</td><td class=n>19.0</td><td class=n>6.2</td><td class=n>23.5</td><td class=n>29.9</td><td class=n><b>13.7</b></td><td class=n>10.9</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr><td>WhisperLah v2.1 · near-mic mode</td><td class=n>16.0</td><td class=n>18.9</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+<tr class=ours><td><b>WhisperLah v3</b> · room mode</td><td class=n>17.1</td><td class=n>18.0</td><td class=n>6.0</td><td class=n>21.7</td><td class=n><b>27.8</b></td><td class=n>14.3</td><td class=n><b>10.7</b></td><td class=n><b>9.2</b></td><td class=n><b>24.9</b></td><td class=n><b>1.9</b></td><td class=n>4.5</td></tr>
+<tr class=ours><td><b>WhisperLah v3</b> · near-mic mode</td><td class=n><b>14.8</b></td><td class=n><b>17.9</b></td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td><td class=n>TBD</td></tr>
+</table>
+</section>
+
+</body>
+</html>

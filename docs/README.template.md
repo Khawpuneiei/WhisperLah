@@ -4,8 +4,9 @@ WhisperLah is a Singlish speech recognition model built for Lepaq. This repo
 is its benchmark showcase: the contamination-checked evaluation harness and the
 per-clip results used to measure WhisperLah against every Singlish model we
 could run, including A*STAR's MERaLiON-2. **The model weights are proprietary
-and are not published here.** How WhisperLah is built and trained will be
-described in a technical report.
+and are not published here.** How WhisperLah is built, trained, evaluated
+and served is described in the
+**[technical report (PDF)](docs/WhisperLah-Technical-Report.pdf)**.
 
 <!--HEADLINE-->
 
