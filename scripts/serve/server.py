@@ -50,6 +50,36 @@ log = logging.getLogger("whisperlah")
 
 NEAR_PROMPT = "Near speaker only."
 
+
+class BadAudio(ValueError):
+    """The file itself cannot be transcribed: it has no sound track, or it is
+    not audio at all. Every retry gives the same answer, so the job worker
+    fails the job at once (`permanent`), and the message is written to be
+    shown to the person who uploaded the file."""
+    permanent = True
+
+
+NO_SOUND_TRACK = ("This recording has no sound track, so there is nothing to transcribe. "
+                  "It looks like a video recorded without audio, such as a screen recording "
+                  "with the microphone off.")
+EMPTY_SOUND_TRACK = "This recording's sound track is empty, so there is nothing to transcribe."
+NOT_AUDIO = "This file could not be read as audio or video. It may be damaged, or not a recording."
+
+
+def check_audio(path: str) -> None:
+    """Raise BadAudio for a file decode_audio cannot use. A video with no audio
+    stream opens fine and then fails deep inside faster-whisper with
+    "IndexError: tuple index out of range", which reads like a bug here."""
+    import av
+
+    try:
+        with av.open(path, metadata_errors="ignore") as container:
+            has_audio = bool(container.streams.audio)
+    except av.error.InvalidDataError as e:
+        raise BadAudio(NOT_AUDIO) from e
+    if not has_audio:
+        raise BadAudio(NO_SOUND_TRACK)
+
 # Chosen stack (21 Oct 2026): pyannote community-1 for diarization, its built-in
 # WeSpeaker ResNet34 centroids as the speaker embedding, no fine-tuning.
 DIARIZERS = {
@@ -279,7 +309,10 @@ class Engine:
 
         timing = {}
         t_start = t0 = time.time()
+        check_audio(path)
         wav = decode_audio(path, sampling_rate=16000)
+        if len(wav) == 0:
+            raise BadAudio(EMPTY_SOUND_TRACK)
         duration = len(wav) / 16000
         timing["decode_s"] = round(time.time() - t0, 3)
 
@@ -381,6 +414,8 @@ async def transcribe(
                                          num_speakers, min_speakers, max_speakers)
         result["timing"]["wall_s"] = round(time.time() - t0, 3)
         return JSONResponse(result)
+    except BadAudio as e:
+        raise HTTPException(422, str(e))
     finally:
         os.unlink(path)
 

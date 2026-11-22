@@ -143,6 +143,24 @@ def test_expired_audio_url_fails_without_retry():
     assert posted[0]["status"] == "failed"
 
 
+def test_bad_audio_fails_at_once_with_its_own_message():
+    # server.BadAudio (a video with no sound track) marks itself permanent:
+    # no queue retry, and the callback carries its message as written.
+    store, job = queued_job()
+
+    class BadAudio(ValueError):
+        permanent = True
+
+    def transcribe(*a):
+        raise BadAudio("This recording has no sound track, so there is nothing to transcribe.")
+
+    out, posted = run(store, job, transcribe)  # returns: raising would make Modal retry
+    assert out["status"] == "failed" and out["attempts"] == 1
+    assert out["error"] == "This recording has no sound track, so there is nothing to transcribe."
+    assert posted == [{"job_id": job["job_id"], "status": "failed", "model_version": "v3",
+                       "error": out["error"]}]
+
+
 def test_transient_error_retries_then_fails_on_last_attempt():
     store, job = queued_job()
 
