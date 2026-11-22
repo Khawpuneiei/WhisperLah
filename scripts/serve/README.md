@@ -17,7 +17,7 @@ machine (`models/` is gitignored).
 | `server.py` | FastAPI server: `POST /transcribe`, `GET /health` |
 | `fallback.py` | Whisper's temperature fallback with the same compression-ratio rule as `eval_hf.py` |
 | `bench.py` | time a recording through the server and the OpenAI API, Rapport-style (600 s parts, 3 in flight) |
-| `test_assign.py`, `test_fallback.py` | unit tests (CPU, no model) |
+| `test_assign.py`, `test_fallback.py`, `test_jobs.py`, `test_audio_check.py` | unit tests (CPU, no model) |
 
 ## Setup
 
@@ -103,6 +103,11 @@ Requests run off the event loop, and a request's diarization starts in its
 own thread while its ASR runs, so `total_s` is close to the slower of the two,
 not their sum. ASR and diarization hold separate locks, so with several parts
 in flight one part's ASR runs while another's diarization is clustering.
+
+A file with nothing to transcribe gets a 422 whose `detail` can be shown to
+the person as it is: a video with no sound track (a screen recording made with
+the microphone off), an empty sound track, or a file that is not audio at all.
+A job (`jobs.py`) fails at once with the same message instead of being retried.
 
 `mode=near` sends the `Near speaker only.` prompt (lapel or headset mic).
 Set `WHISPERLAH_API_KEY` to require a bearer token. `WHISPERLAH_DIA_BATCH`

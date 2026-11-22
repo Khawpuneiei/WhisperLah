@@ -36,7 +36,13 @@ CALLBACK_BACKOFF = (1, 4, 16)          # seconds before retries 1, 2 and 3
 
 
 class PermanentError(Exception):
-    """A job that will fail the same way on every retry (bad URL, bad audio)."""
+    """A job that will fail the same way on every retry (bad URL, bad audio).
+    The transcriber marks its own such errors with `permanent = True` instead
+    (server.BadAudio), so this module needs nothing from it."""
+
+
+def is_permanent(e: Exception) -> bool:
+    return isinstance(e, PermanentError) or getattr(e, "permanent", False) is True
 
 
 class JobRequest(BaseModel):
@@ -193,9 +199,9 @@ def run_job(job: dict, *, store, transcribe: Callable, get_stream: Callable,
         # stored job unreadable wherever numpy is not installed.
         result = json.loads(json.dumps(result, default=float))
         return finish("done", result=result)
-    except PermanentError as e:
-        return finish("failed", error=str(e))
     except Exception as e:
+        if is_permanent(e):
+            return finish("failed", error=str(e)[:500])
         if attempts >= max_attempts:
             finish("failed", error=f"{type(e).__name__}: {e}"[:500])
         else:
